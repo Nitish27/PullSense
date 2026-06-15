@@ -1,0 +1,27 @@
+{
+	"compilerOptions": {
+		"target": "ES2022",
+		"module": "ESNext",
+		"moduleResolution": "Bundler",
+		"lib": ["ES2022"],
+		"allowJs": false,
+		"checkJs": false,
+		"strict": true,
+		"esModuleInterop": true,
+		"skipLibCheck": true,
+		"forceConsistentCasingInFileNames": true,
+		"resolveJsonModule": true,
+    "isolatedModules": true,
+    "declaration": true,
+    "sourceMap": true,
+    "noEmit": true,
+    "baseUrl": ".",
+    "ignoreDeprecations": "6.0",
+    "paths": {
+      "@ai-code-review/shared": ["packages/shared/src/index.ts"],
+      "@ai-code-review/github": ["packages/github/src/index.ts"],
+			"@ai-code-review/indexer": ["packages/indexer/src/index.ts"],
+			"@ai-code-review/reviewer": ["packages/reviewer/src/index.ts"]
+		}
+	}
+}

@@ -1,0 +1,13 @@
+{
+	"name": "@ai-code-review/github",
+	"version": "0.1.0",
+	"private": true,
+	"type": "module",
+	"exports": "./src/index.ts",
+	"scripts": {
+		"build": "tsc -p tsconfig.json --noEmit false",
+		"lint": "biome check src",
+		"test": "node -e \"console.log('No github package tests yet')\"",
+		"typecheck": "tsc -p tsconfig.json --noEmit"
+	}
+}

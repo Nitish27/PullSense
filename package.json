@@ -1,0 +1,26 @@
+{
+	"name": "ai-code-review-bot",
+	"version": "0.1.0",
+	"private": true,
+	"packageManager": "pnpm@10.11.0",
+	"scripts": {
+		"build": "turbo run build",
+		"dev": "turbo run dev --parallel",
+		"dev:api": "pnpm --filter @ai-code-review/api dev",
+		"dev:web": "pnpm --filter @ai-code-review/web dev",
+		"dev:infra": "docker compose up -d",
+		"dev:infra:down": "docker compose down",
+		"format": "biome format --write .",
+		"lint": "turbo run lint",
+		"test": "turbo run test",
+		"typecheck": "turbo run typecheck"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "^2.5.0",
+		"@types/node": "^25.9.3",
+		"tsx": "^4.22.4",
+		"turbo": "^2.9.18",
+		"typescript": "^6.0.3",
+		"vitest": "^4.1.9"
+	}
+}
