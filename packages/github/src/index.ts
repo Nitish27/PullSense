@@ -1,3 +1,1 @@
-export function describeGithubPackage() {
-	return "GitHub integration package placeholder for Phase 1.";
-}
+export * from "./pull-request-files";
