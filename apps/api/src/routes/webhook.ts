@@ -43,6 +43,13 @@ export function registerWebhookRoutes(
 			if (
 				!verifyGitHubWebhookSignature(options.webhookSecret, rawBody, signature)
 			) {
+				app.log.warn(
+					{
+						eventName,
+					},
+					"Rejected GitHub webhook with invalid signature",
+				);
+
 				return reply
 					.code(401)
 					.send({ error: "Invalid GitHub webhook signature" });
@@ -52,10 +59,30 @@ export function registerWebhookRoutes(
 			const reviewJob = getPullReviewJobFromWebhook(eventName, payload);
 
 			if (!reviewJob) {
+				app.log.info(
+					{
+						action: payload.action,
+						eventName,
+					},
+					"Ignored GitHub webhook event",
+				);
+
 				return reply.code(202).send({ status: "ignored" });
 			}
 
 			await options.reviewQueue.enqueueReviewJob(reviewJob);
+
+			app.log.info(
+				{
+					action: reviewJob.action,
+					eventName,
+					installationId: reviewJob.installationId,
+					owner: reviewJob.owner,
+					pullNumber: reviewJob.pullNumber,
+					repository: reviewJob.repository,
+				},
+				"Accepted GitHub webhook and enqueued review job",
+			);
 
 			return reply.code(202).send({ status: "accepted" });
 		},
