@@ -25,6 +25,25 @@ export type PullRequestFilesClient = {
 	};
 };
 
+export type PullRequestCommentClient = {
+	issues: {
+		createComment(input: {
+			body: string;
+			issue_number: number;
+			owner: string;
+			repo: string;
+		}): Promise<{
+			data: {
+				html_url?: string;
+				id: number;
+			};
+		}>;
+	};
+};
+
+export type GitHubInstallationClient = PullRequestFilesClient &
+	PullRequestCommentClient;
+
 export type PullRequestFilesInput = {
 	owner: string;
 	pullNumber: number;
@@ -55,7 +74,7 @@ export function readGitHubAppConfigFromEnv(env: {
 export async function createInstallationClient(
 	config: GitHubAppConfig,
 	installationId: number,
-): Promise<PullRequestFilesClient> {
+): Promise<GitHubInstallationClient> {
 	const auth = createAppAuth({
 		appId: config.appId,
 		privateKey: config.privateKey,

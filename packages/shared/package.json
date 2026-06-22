@@ -6,7 +6,7 @@
 	"exports": "./src/index.ts",
 	"scripts": {
 		"build": "tsc -p tsconfig.json --noEmit false",
-		"lint": "biome check src",
+		"lint": "biome check src/*.ts",
 		"test": "node -e \"console.log('No shared tests yet')\"",
 		"typecheck": "tsc -p tsconfig.json --noEmit"
 	}

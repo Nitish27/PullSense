@@ -27,3 +27,33 @@ export type PullReviewJob = {
 	repository: string;
 	headSha: string;
 };
+
+export type PullRequestReviewSeverity = "high" | "medium" | "low";
+
+export type PullRequestReviewFile = {
+	filename: string;
+	patch?: string;
+	sha: string | null;
+	status: string;
+};
+
+export type PullRequestReviewInput = {
+	files: PullRequestReviewFile[];
+	headSha: string;
+	owner: string;
+	pullNumber: number;
+	repository: string;
+};
+
+export type PullRequestReviewIssue = {
+	body: string;
+	file?: string;
+	severity: PullRequestReviewSeverity;
+	title: string;
+};
+
+export type PullRequestReview = {
+	issues: PullRequestReviewIssue[];
+	overallSeverity: PullRequestReviewSeverity;
+	summary: string;
+};

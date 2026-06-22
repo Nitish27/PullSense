@@ -12,3 +12,6 @@ coverage
 superdev/
 pem-file/
 *.pem
+packages/shared/src/*.d.ts
+packages/shared/src/*.js
+packages/shared/src/*.js.map

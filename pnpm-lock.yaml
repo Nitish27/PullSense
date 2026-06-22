@@ -32,6 +32,9 @@ importers:
       '@ai-code-review/github':
         specifier: workspace:*
         version: link:../../packages/github
+      '@ai-code-review/reviewer':
+        specifier: workspace:*
+        version: link:../../packages/reviewer
       '@ai-code-review/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -87,7 +90,14 @@ importers:
 
   packages/indexer: {}
 
-  packages/reviewer: {}
+  packages/reviewer:
+    dependencies:
+      '@ai-code-review/shared':
+        specifier: workspace:*
+        version: link:../shared
+      zod:
+        specifier: ^4.0.0
+        version: 4.4.3
 
   packages/shared: {}
 

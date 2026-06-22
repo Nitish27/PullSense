@@ -12,22 +12,25 @@ This project is being built as a GitHub App that reviews PRs with repository-awa
 
 ## Current Status
 
-The repository is currently at `Phase 0: Foundations`.
+The repository is currently in `Phase 1: webhook-to-comment MVP`.
 
 What exists today:
 - `pnpm` + `turbo` monorepo workspace
 - `Fastify` API scaffold in `apps/api`
 - `Next.js` web scaffold in `apps/web`
-- shared internal packages for `github`, `indexer`, `reviewer`, and `shared`
-- local Docker services for PostgreSQL and Redis
+- GitHub App webhook verification and PR event enqueueing
+- BullMQ worker flow for PR review jobs
+- changed-file fetch from GitHub pull requests
+- Gemini-powered structured PR review generation
+- one markdown summary comment posted back to the PR conversation
 - baseline CI, lint, typecheck, test, and build scripts
 
 What does not exist yet:
-- GitHub App webhook processing
 - repository cloning/indexing
 - pgvector retrieval
-- PR review generation
-- PR comment posting
+- inline review comments on specific diff lines
+- check runs / review status UI
+- comment deduping or persistent review history
 
 ## Workspace Layout
 
@@ -36,9 +39,9 @@ apps/
   api/        Fastify API foundation
   web/        Next.js dashboard foundation
 packages/
-  github/     GitHub integration package placeholder
+  github/     GitHub integration helpers
   indexer/    Indexing pipeline placeholder
-  reviewer/   Review engine placeholder
+  reviewer/   Gemini review generation
   shared/     Shared constants/types
 docs/
   Project plan and execution docs
@@ -50,7 +53,8 @@ docs/
 
 - Node.js 22+
 - pnpm 10+
-- Docker
+- Redis
+- Docker optional for local Redis/PostgreSQL if you do not run them directly
 
 ### Install
 
@@ -64,6 +68,16 @@ pnpm install
 cp .env.example .env
 ```
 
+Fill in:
+
+- `GITHUB_APP_ID`
+- `GITHUB_PRIVATE_KEY`
+- `GITHUB_WEBHOOK_SECRET`
+- `GEMINI_API_KEY`
+- `GEMINI_MODEL`
+
+Keep API keys local only. Do not commit them.
+
 ### Start local infrastructure
 
 ```bash
@@ -74,6 +88,8 @@ This starts:
 - PostgreSQL on `localhost:5432`
 - Redis on `localhost:6379`
 
+If Docker is unavailable, you only need a reachable Redis instance for the current PR review flow.
+
 ### Run the apps
 
 Run API:
@@ -82,21 +98,44 @@ Run API:
 pnpm dev:api
 ```
 
+Run worker:
+
+```bash
+pnpm dev:worker
+```
+
 Run web app:
 
 ```bash
 pnpm dev:web
 ```
 
-Or run the workspace in parallel:
+## Local PR Review Test
 
-```bash
-pnpm dev
-```
+1. Start Redis, the API, and the worker.
+2. Start `ngrok` against the API port, for example `ngrok http 3001`.
+3. Set the GitHub App webhook URL to `https://<your-ngrok-domain>/webhook`.
+4. Confirm `https://<your-ngrok-domain>/health` returns `{"service":"api","status":"ok"}`.
+5. Install the GitHub App on the repo you want to test.
+6. Push a commit to a branch with an open PR, or open a fresh PR.
+7. Watch GitHub App recent deliveries for `pull_request` events.
+8. Watch the worker logs for the queued review job.
+9. Confirm PullSense posts a `## PullSense review` summary comment in the PR conversation.
+
+Current visible output:
+
+- one PR summary comment in the GitHub conversation
+- structured severity plus findings from Gemini
+
+Not in this slice yet:
+
+- inline file annotations
+- review approval/request-changes actions
+- RAG or vector retrieval
 
 ## Verification
 
-Run the baseline checks:
+Run the workspace checks:
 
 ```bash
 pnpm lint
@@ -105,9 +144,12 @@ pnpm test
 pnpm build
 ```
 
-Current test coverage is intentionally minimal:
-- API health route test exists
-- other packages use placeholder test commands until their real behavior is implemented
+Current automated coverage includes:
+
+- webhook parsing and queueing
+- GitHub PR file fetch normalization
+- Gemini review package behavior
+- worker-level review generation and PR comment posting flow
 
 ## Environment Variables
 
@@ -116,9 +158,12 @@ Core variables are documented in [.env.example](/Users/nitish/ai-code-review/.en
 Important values:
 
 - `API_PORT`
-- `WEB_PORT`
-- `DATABASE_URL`
 - `REDIS_URL`
+- `GITHUB_APP_ID`
+- `GITHUB_PRIVATE_KEY`
+- `GITHUB_WEBHOOK_SECRET`
+- `GEMINI_API_KEY`
+- `GEMINI_MODEL`
 - `NEXT_PUBLIC_API_BASE_URL`
 - `NEXT_PUBLIC_APP_NAME`
 
@@ -136,10 +181,9 @@ Important values:
 
 ## Next Step
 
-The next implementation milestone is `Phase 1: GitHub App Skeleton`:
+The next implementation milestones are:
 
-- register the GitHub App
-- add webhook verification
-- enqueue PR events
-- fetch changed PR files
-- validate end-to-end event flow
+- improve review quality and prompt shaping
+- add inline review comments or check runs
+- add repository indexing and RAG-backed context
+- add comment update/deduping and persistence
