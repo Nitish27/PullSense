@@ -1,4 +1,5 @@
 import type {
+	PullRequestInlineFinding,
 	PullRequestReview,
 	PullRequestReviewInput,
 	PullRequestReviewSeverity,
@@ -12,7 +13,17 @@ const reviewIssueSchema = z.object({
 	title: z.string().min(1),
 });
 
+const inlineFindingSchema = z.object({
+	body: z.string().min(1),
+	confidence: z.enum(["high", "medium", "low"]),
+	file: z.string().min(1),
+	line: z.number().int().positive(),
+	severity: z.enum(["high", "medium", "low"]),
+	title: z.string().min(1),
+});
+
 const pullRequestReviewSchema = z.object({
+	inlineFindings: z.array(inlineFindingSchema).default([]),
 	issues: z.array(reviewIssueSchema),
 	overallSeverity: z.enum(["high", "medium", "low"]),
 	summary: z.string().min(1),
@@ -72,12 +83,17 @@ export function buildReviewPrompt(input: PullRequestReviewInput) {
 		`Changed files: ${input.files.length}`,
 		"",
 		"Return only JSON with this shape:",
-		'{ "summary": string, "overallSeverity": "high" | "medium" | "low", "issues": [{ "title": string, "body": string, "severity": "high" | "medium" | "low", "file"?: string }] }',
+		'{ "summary": string, "overallSeverity": "high" | "medium" | "low", "issues": [{ "title": string, "body": string, "severity": "high" | "medium" | "low", "file"?: string }], "inlineFindings": [{ "title": string, "body": string, "severity": "high" | "medium" | "low", "confidence": "high" | "medium" | "low", "file": string, "line": number }] }',
 		"",
 		"Rules:",
 		"- Focus on correctness, regressions, and operational risk.",
 		"- Keep the summary concise.",
 		"- Use an empty issues array when no actionable problem is found.",
+		"- Use inlineFindings only when you are highly confident the diff line is the correct anchor.",
+		"- Only include inlineFindings for added or context lines that still exist on the RIGHT side of the diff.",
+		"- The line value for inlineFindings must be the RIGHT-side blob line number from the patch.",
+		"- Prefer confidence 'high' for inlineFindings you want posted on the PR diff.",
+		"- Use an empty inlineFindings array when no diff-anchored finding is reliable enough.",
 		"- Do not include markdown fences or extra prose.",
 		"",
 		fileSections || "No changed files were supplied.",
@@ -179,3 +195,6 @@ export const reviewSeverities: PullRequestReviewSeverity[] = [
 	"medium",
 	"low",
 ];
+
+export const reviewConfidenceLevels: PullRequestInlineFinding["confidence"][] =
+	["high", "medium", "low"];

@@ -1,8 +1,10 @@
 import {
+	buildPullRequestReviewComments,
 	fetchPullRequestFilesForInstallation,
 	type PullRequestFilesInput,
 	type PullRequestFilesResult,
 	postPullRequestCommentForInstallation,
+	postPullRequestReviewForInstallation,
 	readGitHubAppConfigFromEnv,
 } from "@ai-code-review/github";
 import {
@@ -25,6 +27,22 @@ type ReviewWorkerDependencies = {
 	): Promise<PullRequestFilesResult>;
 	postPullRequestComment(input: {
 		body: string;
+		installationId: number;
+		owner: string;
+		pullNumber: number;
+		repository: string;
+	}): Promise<{
+		htmlUrl?: string;
+		id: number;
+	}>;
+	postPullRequestReview(input: {
+		body: string;
+		comments: Array<{
+			body: string;
+			line: number;
+			path: string;
+			side: "RIGHT";
+		}>;
 		installationId: number;
 		owner: string;
 		pullNumber: number;
@@ -63,11 +81,27 @@ export async function processReviewJob(
 		pullNumber: job.pullNumber,
 		repository: job.repository,
 	});
+	const inlineReviewComments = buildPullRequestReviewComments(
+		files,
+		review.inlineFindings.filter((finding) => finding.confidence === "high"),
+	);
+	const inlineReview =
+		inlineReviewComments.length > 0
+			? await dependencies.postPullRequestReview({
+					body: formatInlinePullRequestReviewBody(review),
+					comments: inlineReviewComments,
+					installationId: job.installationId,
+					owner: job.owner,
+					pullNumber: job.pullNumber,
+					repository: job.repository,
+				})
+			: null;
 
 	const result = {
 		comment,
 		fileCount: files.length,
 		files,
+		inlineReview,
 		job,
 		review,
 	};
@@ -77,6 +111,7 @@ export async function processReviewJob(
 			commentId: comment.id,
 			fileCount: result.fileCount,
 			installationId: job.installationId,
+			inlineReviewId: inlineReview?.id,
 			owner: job.owner,
 			overallSeverity: review.overallSeverity,
 			pullNumber: job.pullNumber,
@@ -105,6 +140,12 @@ export function createReviewWorker() {
 					fetchPullRequestFilesForInstallation(githubAppConfig, input),
 				postPullRequestComment: (input) =>
 					postPullRequestCommentForInstallation(githubAppConfig, input),
+				postPullRequestReview: (input) =>
+					postPullRequestReviewForInstallation(githubAppConfig, {
+						commitId: job.data.headSha,
+						event: "COMMENT",
+						...input,
+					}),
 				reviewPullRequest: (input) =>
 					generatePullRequestReview(input, {
 						generateReview,
@@ -142,6 +183,16 @@ export function formatPullRequestReviewComment(review: PullRequestReview) {
 		"",
 		"### Findings",
 		findings,
+	].join("\n");
+}
+
+export function formatInlinePullRequestReviewBody(review: PullRequestReview) {
+	return [
+		"## PullSense inline review",
+		"",
+		review.summary,
+		"",
+		"Only high-confidence findings with valid diff anchors are included below.",
 	].join("\n");
 }
 

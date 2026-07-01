@@ -5,6 +5,16 @@ import { reviewPullRequest } from "./review-pull-request";
 describe("reviewPullRequest", () => {
 	it("returns a normalized structured review from the model response", async () => {
 		const generateReview = vi.fn(async () => ({
+			inlineFindings: [
+				{
+					body: "Wrap the worker body in retry-aware error handling before posting the review.",
+					confidence: "high",
+					file: "apps/api/src/workers/review-worker.ts",
+					line: 34,
+					severity: "medium",
+					title: "Add retry guard around external API calls",
+				},
+			],
 			issues: [
 				{
 					body: "The worker still drops failures instead of retrying them.",
@@ -44,6 +54,16 @@ describe("reviewPullRequest", () => {
 			prompt: expect.stringContaining("Nitish27/PullSense"),
 		});
 		expect(review).toEqual({
+			inlineFindings: [
+				{
+					body: "Wrap the worker body in retry-aware error handling before posting the review.",
+					confidence: "high",
+					file: "apps/api/src/workers/review-worker.ts",
+					line: 34,
+					severity: "medium",
+					title: "Add retry guard around external API calls",
+				},
+			],
 			issues: [
 				{
 					body: "The worker still drops failures instead of retrying them.",
@@ -70,6 +90,16 @@ describe("reviewPullRequest", () => {
 				},
 				{
 					generateReview: async () => ({
+						inlineFindings: [
+							{
+								body: "Needs a line number",
+								confidence: "high",
+								file: "apps/api/src/workers/review-worker.ts",
+								line: "34",
+								severity: "medium",
+								title: "Invalid line type",
+							},
+						],
 						issues: "not-an-array",
 						overallSeverity: "high",
 						summary: 42,

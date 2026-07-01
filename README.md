@@ -12,7 +12,7 @@ This project is being built as a GitHub App that reviews PRs with repository-awa
 
 ## Current Status
 
-The repository is currently in `Phase 1: webhook-to-comment MVP`.
+The repository is currently in `Phase 1: summary-plus-inline review MVP`.
 
 What exists today:
 - `pnpm` + `turbo` monorepo workspace
@@ -23,12 +23,12 @@ What exists today:
 - changed-file fetch from GitHub pull requests
 - Gemini-powered structured PR review generation
 - one markdown summary comment posted back to the PR conversation
+- one grouped pull request review for high-confidence inline diff findings
 - baseline CI, lint, typecheck, test, and build scripts
 
 What does not exist yet:
 - repository cloning/indexing
 - pgvector retrieval
-- inline review comments on specific diff lines
 - check runs / review status UI
 - comment deduping or persistent review history
 
@@ -121,15 +121,16 @@ pnpm dev:web
 7. Watch GitHub App recent deliveries for `pull_request` events.
 8. Watch the worker logs for the queued review job.
 9. Confirm PullSense posts a `## PullSense review` summary comment in the PR conversation.
+10. If high-confidence findings were anchored successfully, confirm GitHub also shows a grouped inline review in the PR review / Files changed UI.
 
 Current visible output:
 
 - one PR summary comment in the GitHub conversation
+- optional grouped inline review comments on anchored diff lines
 - structured severity plus findings from Gemini
 
 Not in this slice yet:
 
-- inline file annotations
 - review approval/request-changes actions
 - RAG or vector retrieval
 
@@ -148,8 +149,9 @@ Current automated coverage includes:
 
 - webhook parsing and queueing
 - GitHub PR file fetch normalization
+- GitHub grouped review submission and diff anchoring
 - Gemini review package behavior
-- worker-level review generation and PR comment posting flow
+- worker-level review generation, summary comment posting, and inline review flow
 
 ## Environment Variables
 
@@ -184,6 +186,7 @@ Important values:
 The next implementation milestones are:
 
 - improve review quality and prompt shaping
-- add inline review comments or check runs
+- add comment update/deduping for both summary comments and inline reviews
+- add check runs / richer review status UI
 - add repository indexing and RAG-backed context
-- add comment update/deduping and persistence
+- add persistence and review history

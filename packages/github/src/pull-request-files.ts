@@ -41,8 +41,33 @@ export type PullRequestCommentClient = {
 	};
 };
 
+export type PullRequestReviewClient = {
+	pulls: {
+		createReview(input: {
+			body: string;
+			comments: Array<{
+				body: string;
+				line: number;
+				path: string;
+				side: "RIGHT";
+			}>;
+			commit_id: string;
+			event: "COMMENT";
+			owner: string;
+			pull_number: number;
+			repo: string;
+		}): Promise<{
+			data: {
+				html_url?: string;
+				id: number;
+			};
+		}>;
+	};
+};
+
 export type GitHubInstallationClient = PullRequestFilesClient &
-	PullRequestCommentClient;
+	PullRequestCommentClient &
+	PullRequestReviewClient;
 
 export type PullRequestFilesInput = {
 	owner: string;

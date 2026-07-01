@@ -8,7 +8,10 @@ describe("processReviewJob", () => {
 		const fetchPullRequestFilesForInstallation = vi.fn(async () => [
 			{
 				filename: "src/app.ts",
-				patch: "@@ -1 +1 @@",
+				patch: [
+					"@@ -1 +1,2 @@",
+					"+const review = await reviewPullRequest();",
+				].join("\n"),
 				sha: "file-sha",
 				status: "modified",
 			},
@@ -23,6 +26,24 @@ describe("processReviewJob", () => {
 						title: "Retry path missing",
 					},
 				],
+				inlineFindings: [
+					{
+						body: "Guard this external call so transient failures are clearer in the worker path.",
+						confidence: "high",
+						file: "src/app.ts",
+						line: 1,
+						severity: "medium",
+						title: "Add explicit retry-aware guard",
+					},
+					{
+						body: "This should stay summary-only because confidence is not high.",
+						confidence: "medium",
+						file: "src/app.ts",
+						line: 1,
+						severity: "low",
+						title: "Skip medium-confidence inline comment",
+					},
+				],
 				overallSeverity: "medium",
 				summary:
 					"The worker pipeline is in place, but retry handling still needs work.",
@@ -31,6 +52,11 @@ describe("processReviewJob", () => {
 		const postPullRequestComment = vi.fn(async () => ({
 			htmlUrl: "https://github.com/Nitish27/PullSense/pull/9#issuecomment-101",
 			id: 101,
+		}));
+		const postPullRequestReview = vi.fn(async () => ({
+			htmlUrl:
+				"https://github.com/Nitish27/PullSense/pull/9#pullrequestreview-202",
+			id: 202,
 		}));
 		const logger = {
 			info: vi.fn(),
@@ -47,6 +73,7 @@ describe("processReviewJob", () => {
 		const result = await processReviewJob(job, {
 			fetchPullRequestFilesForInstallation,
 			postPullRequestComment,
+			postPullRequestReview,
 			reviewPullRequest,
 			logger,
 		});
@@ -61,7 +88,10 @@ describe("processReviewJob", () => {
 			files: [
 				{
 					filename: "src/app.ts",
-					patch: "@@ -1 +1 @@",
+					patch: [
+						"@@ -1 +1,2 @@",
+						"+const review = await reviewPullRequest();",
+					].join("\n"),
 					sha: "file-sha",
 					status: "modified",
 				},
@@ -78,6 +108,21 @@ describe("processReviewJob", () => {
 			pullNumber: 9,
 			repository: "PullSense",
 		});
+		expect(postPullRequestReview).toHaveBeenCalledWith({
+			body: expect.stringContaining("## PullSense inline review"),
+			comments: [
+				{
+					body: expect.stringContaining("Add explicit retry-aware guard"),
+					line: 1,
+					path: "src/app.ts",
+					side: "RIGHT",
+				},
+			],
+			installationId: 42,
+			owner: "Nitish27",
+			pullNumber: 9,
+			repository: "PullSense",
+		});
 		expect(result).toEqual({
 			comment: {
 				htmlUrl:
@@ -88,13 +133,39 @@ describe("processReviewJob", () => {
 			files: [
 				{
 					filename: "src/app.ts",
-					patch: "@@ -1 +1 @@",
+					patch: [
+						"@@ -1 +1,2 @@",
+						"+const review = await reviewPullRequest();",
+					].join("\n"),
 					sha: "file-sha",
 					status: "modified",
 				},
 			],
 			job,
+			inlineReview: {
+				htmlUrl:
+					"https://github.com/Nitish27/PullSense/pull/9#pullrequestreview-202",
+				id: 202,
+			},
 			review: {
+				inlineFindings: [
+					{
+						body: "Guard this external call so transient failures are clearer in the worker path.",
+						confidence: "high",
+						file: "src/app.ts",
+						line: 1,
+						severity: "medium",
+						title: "Add explicit retry-aware guard",
+					},
+					{
+						body: "This should stay summary-only because confidence is not high.",
+						confidence: "medium",
+						file: "src/app.ts",
+						line: 1,
+						severity: "low",
+						title: "Skip medium-confidence inline comment",
+					},
+				],
 				issues: [
 					{
 						body: "Worker failures should retry before exiting.",

@@ -29,6 +29,7 @@ export type PullReviewJob = {
 };
 
 export type PullRequestReviewSeverity = "high" | "medium" | "low";
+export type PullRequestReviewConfidence = "high" | "medium" | "low";
 
 export type PullRequestReviewFile = {
 	filename: string;
@@ -52,7 +53,17 @@ export type PullRequestReviewIssue = {
 	title: string;
 };
 
+export type PullRequestInlineFinding = {
+	body: string;
+	confidence: PullRequestReviewConfidence;
+	file: string;
+	line: number;
+	severity: PullRequestReviewSeverity;
+	title: string;
+};
+
 export type PullRequestReview = {
+	inlineFindings: PullRequestInlineFinding[];
 	issues: PullRequestReviewIssue[];
 	overallSeverity: PullRequestReviewSeverity;
 	summary: string;
