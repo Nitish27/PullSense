@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 import type {
 	PullRequestInlineFinding,
 	PullRequestReviewFile,
@@ -33,6 +35,8 @@ export type PostPullRequestReviewResult = {
 	id: number;
 };
 
+const inlineReviewMarkerPrefix = "<!-- pullsense:inline-review:key=";
+
 export function buildPullRequestReviewComments(
 	files: PullRequestReviewFile[],
 	inlineFindings: PullRequestInlineFinding[],
@@ -65,15 +69,38 @@ export async function postPullRequestReview(
 	client: PullRequestReviewClient,
 	input: PostPullRequestReviewInput,
 ): Promise<PostPullRequestReviewResult> {
-	const response = await client.pulls.createReview({
-		body: input.body,
-		comments: input.comments,
-		commit_id: input.commitId,
-		event: input.event,
-		owner: input.owner,
-		pull_number: input.pullNumber,
-		repo: input.repository,
-	});
+	const existingReview = await findLatestPullSenseInlineReview(client, input);
+	const currentSignature = extractInlineReviewSignature(input.body);
+	const existingSignature = existingReview
+		? extractInlineReviewSignature(existingReview.body)
+		: null;
+	const response =
+		existingReview &&
+		existingSignature === currentSignature &&
+		existingReview.body === input.body
+			? {
+					data: {
+						html_url: existingReview.html_url,
+						id: existingReview.id,
+					},
+				}
+			: existingReview && existingSignature === currentSignature
+				? await client.pulls.updateReview({
+						body: input.body,
+						owner: input.owner,
+						pull_number: input.pullNumber,
+						repo: input.repository,
+						review_id: existingReview.id,
+					})
+				: await client.pulls.createReview({
+						body: input.body,
+						comments: input.comments,
+						commit_id: input.commitId,
+						event: input.event,
+						owner: input.owner,
+						pull_number: input.pullNumber,
+						repo: input.repository,
+					});
 
 	return {
 		htmlUrl: response.data.html_url,
@@ -88,6 +115,28 @@ export async function postPullRequestReviewForInstallation(
 	const client = await createInstallationClient(config, input.installationId);
 
 	return postPullRequestReview(client, input);
+}
+
+export function buildInlineReviewSignature(
+	comments: PullRequestReviewComment[],
+): string {
+	const normalizedComments = comments.map((comment) => ({
+		body: comment.body.trim(),
+		line: comment.line,
+		path: comment.path,
+		side: comment.side,
+	}));
+
+	return createHash("sha256")
+		.update(JSON.stringify(normalizedComments))
+		.digest("hex");
+}
+
+export function formatInlineReviewBodyWithSignature(
+	body: string,
+	signature: string,
+) {
+	return [`${inlineReviewMarkerPrefix}${signature} -->`, body].join("\n");
 }
 
 function formatInlineReviewCommentBody(finding: PullRequestInlineFinding) {
@@ -141,4 +190,34 @@ function parseRightLineFromHunkHeader(header: string) {
 	}
 
 	return Number.parseInt(match[1], 10);
+}
+
+async function findLatestPullSenseInlineReview(
+	client: PullRequestReviewClient,
+	input: PostPullRequestReviewInput,
+) {
+	const response = await client.pulls.listReviews({
+		owner: input.owner,
+		per_page: 100,
+		pull_number: input.pullNumber,
+		repo: input.repository,
+	});
+
+	return [...response.data]
+		.reverse()
+		.find((review) => review.body?.startsWith(inlineReviewMarkerPrefix));
+}
+
+function extractInlineReviewSignature(body?: string | null) {
+	if (!body?.startsWith(inlineReviewMarkerPrefix)) {
+		return null;
+	}
+
+	const endIndex = body.indexOf(" -->");
+
+	if (endIndex === -1) {
+		return null;
+	}
+
+	return body.slice(inlineReviewMarkerPrefix.length, endIndex);
 }

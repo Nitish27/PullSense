@@ -34,6 +34,31 @@ export type PullRequestCommentClient = {
 			repo: string;
 		}): Promise<{
 			data: {
+				body?: string;
+				html_url?: string;
+				id: number;
+			};
+		}>;
+		listComments(input: {
+			issue_number: number;
+			owner: string;
+			per_page: number;
+			repo: string;
+		}): Promise<{
+			data: Array<{
+				body?: string;
+				html_url?: string;
+				id: number;
+			}>;
+		}>;
+		updateComment(input: {
+			body: string;
+			comment_id: number;
+			owner: string;
+			repo: string;
+		}): Promise<{
+			data: {
+				body?: string;
 				html_url?: string;
 				id: number;
 			};
@@ -58,6 +83,32 @@ export type PullRequestReviewClient = {
 			repo: string;
 		}): Promise<{
 			data: {
+				body?: string;
+				html_url?: string;
+				id: number;
+			};
+		}>;
+		listReviews(input: {
+			owner: string;
+			per_page: number;
+			pull_number: number;
+			repo: string;
+		}): Promise<{
+			data: Array<{
+				body?: string;
+				html_url?: string;
+				id: number;
+			}>;
+		}>;
+		updateReview(input: {
+			body: string;
+			owner: string;
+			pull_number: number;
+			repo: string;
+			review_id: number;
+		}): Promise<{
+			data: {
+				body?: string;
 				html_url?: string;
 				id: number;
 			};

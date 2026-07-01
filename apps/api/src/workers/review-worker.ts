@@ -1,6 +1,8 @@
 import {
+	buildInlineReviewSignature,
 	buildPullRequestReviewComments,
 	fetchPullRequestFilesForInstallation,
+	formatInlineReviewBodyWithSignature,
 	type PullRequestFilesInput,
 	type PullRequestFilesResult,
 	postPullRequestCommentForInstallation,
@@ -57,6 +59,8 @@ type ReviewWorkerDependencies = {
 	};
 };
 
+const pullSenseSummaryMarker = "<!-- pullsense:summary -->";
+
 export async function processReviewJob(
 	job: PullReviewJob,
 	dependencies: ReviewWorkerDependencies,
@@ -88,7 +92,10 @@ export async function processReviewJob(
 	const inlineReview =
 		inlineReviewComments.length > 0
 			? await dependencies.postPullRequestReview({
-					body: formatInlinePullRequestReviewBody(review),
+					body: formatInlineReviewBodyWithSignature(
+						formatInlinePullRequestReviewBody(review),
+						buildInlineReviewSignature(inlineReviewComments),
+					),
 					comments: inlineReviewComments,
 					installationId: job.installationId,
 					owner: job.owner,
@@ -175,6 +182,7 @@ export function formatPullRequestReviewComment(review: PullRequestReview) {
 					.join("\n\n");
 
 	return [
+		pullSenseSummaryMarker,
 		"## PullSense review",
 		"",
 		`Overall severity: **${review.overallSeverity.toUpperCase()}**`,

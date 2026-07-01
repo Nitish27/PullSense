@@ -22,15 +22,15 @@ What exists today:
 - BullMQ worker flow for PR review jobs
 - changed-file fetch from GitHub pull requests
 - Gemini-powered structured PR review generation
-- one markdown summary comment posted back to the PR conversation
-- one grouped pull request review for high-confidence inline diff findings
+- one markdown summary comment posted back to the PR conversation, updated in place on reruns
+- one grouped pull request review for high-confidence inline diff findings, deduped when the finding set is unchanged
 - baseline CI, lint, typecheck, test, and build scripts
 
 What does not exist yet:
 - repository cloning/indexing
 - pgvector retrieval
 - check runs / review status UI
-- comment deduping or persistent review history
+- persistent review history beyond GitHub comments/reviews
 
 ## Workspace Layout
 
@@ -125,8 +125,8 @@ pnpm dev:web
 
 Current visible output:
 
-- one PR summary comment in the GitHub conversation
-- optional grouped inline review comments on anchored diff lines
+- one PR summary comment in the GitHub conversation that PullSense updates in place
+- optional grouped inline review comments on anchored diff lines, only reposted when the anchored high-confidence findings materially change
 - structured severity plus findings from Gemini
 
 Not in this slice yet:
@@ -149,9 +149,9 @@ Current automated coverage includes:
 
 - webhook parsing and queueing
 - GitHub PR file fetch normalization
-- GitHub grouped review submission and diff anchoring
+- GitHub summary comment upsert, grouped review submission, and diff anchoring
 - Gemini review package behavior
-- worker-level review generation, summary comment posting, and inline review flow
+- worker-level review generation, summary comment posting, and inline review dedupe-ready flow
 
 ## Environment Variables
 
@@ -186,7 +186,6 @@ Important values:
 The next implementation milestones are:
 
 - improve review quality and prompt shaping
-- add comment update/deduping for both summary comments and inline reviews
 - add check runs / richer review status UI
 - add repository indexing and RAG-backed context
 - add persistence and review history
