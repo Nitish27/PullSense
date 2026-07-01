@@ -81,6 +81,9 @@ importers:
 
   packages/github:
     dependencies:
+      '@ai-code-review/shared':
+        specifier: workspace:*
+        version: link:../shared
       '@octokit/auth-app':
         specifier: ^8.2.0
         version: 8.2.0
