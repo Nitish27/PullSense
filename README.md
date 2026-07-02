@@ -19,6 +19,9 @@ What exists today:
 - `Fastify` API scaffold in `apps/api`
 - `Next.js` web scaffold in `apps/web`
 - GitHub App webhook verification and PR event enqueueing
+- PostgreSQL connection/bootstrap foundation for persisted review runs
+- persisted review run lifecycle states: `queued`, `in_progress`, `completed`, and `failed`
+- PR-scoped review status API backed by persisted `review_runs`
 - BullMQ worker flow for PR review jobs
 - changed-file fetch from GitHub pull requests
 - Gemini-powered structured PR review generation
@@ -29,8 +32,8 @@ What exists today:
 What does not exist yet:
 - repository cloning/indexing
 - pgvector retrieval
-- check runs / review status UI
-- persistent review history beyond GitHub comments/reviews
+- check runs / richer review status UI
+- user-facing review history screens beyond the new API foundation
 
 ## Workspace Layout
 
@@ -70,6 +73,7 @@ cp .env.example .env
 
 Fill in:
 
+- `DATABASE_URL`
 - `GITHUB_APP_ID`
 - `GITHUB_PRIVATE_KEY`
 - `GITHUB_WEBHOOK_SECRET`
@@ -89,6 +93,7 @@ This starts:
 - Redis on `localhost:6379`
 
 If Docker is unavailable, you only need a reachable Redis instance for the current PR review flow.
+For the new persistence foundation, you also need a reachable PostgreSQL instance via `DATABASE_URL`.
 
 ### Run the apps
 
@@ -128,6 +133,8 @@ Current visible output:
 - one PR summary comment in the GitHub conversation that PullSense updates in place
 - optional grouped inline review comments on anchored diff lines, only reposted when the anchored high-confidence findings materially change
 - structured severity plus findings from Gemini
+- one local API route for persisted PR review status and recent run history:
+  `GET /repos/:owner/:repository/pulls/:pullNumber/review-runs`
 
 Not in this slice yet:
 
@@ -147,6 +154,9 @@ pnpm build
 
 Current automated coverage includes:
 
+- API env parsing for `DATABASE_URL`
+- Postgres review run schema bootstrap, repository mapping, and lifecycle updates
+- PR-scoped persisted review run queries and status route responses
 - webhook parsing and queueing
 - GitHub PR file fetch normalization
 - GitHub summary comment upsert, grouped review submission, and diff anchoring
@@ -160,6 +170,7 @@ Core variables are documented in [.env.example](/Users/nitish/ai-code-review/.en
 Important values:
 
 - `API_PORT`
+- `DATABASE_URL`
 - `REDIS_URL`
 - `GITHUB_APP_ID`
 - `GITHUB_PRIVATE_KEY`
@@ -188,4 +199,4 @@ The next implementation milestones are:
 - improve review quality and prompt shaping
 - add check runs / richer review status UI
 - add repository indexing and RAG-backed context
-- add persistence and review history
+- expand persistence and review history

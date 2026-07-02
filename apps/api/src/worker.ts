@@ -1,6 +1,19 @@
+import { closePostgresPool, createPostgresPool } from "./db/postgres";
+import {
+	createPostgresReviewRunStore,
+	ensureReviewRunsTable,
+} from "./db/review-runs";
+import { getApiEnv } from "./env";
 import { createReviewWorker } from "./workers/review-worker";
 
-const worker = createReviewWorker();
+const env = getApiEnv();
+const database = createPostgresPool(env.DATABASE_URL);
+await ensureReviewRunsTable(database);
+const reviewRunStore = createPostgresReviewRunStore(database);
+
+const worker = createReviewWorker({
+	reviewRunStore,
+});
 
 worker.on("completed", (job) => {
 	console.info(
@@ -26,6 +39,7 @@ worker.on("failed", (job, error) => {
 async function shutdown(signal: string) {
 	console.info({ signal }, "Shutting down review worker");
 	await worker.close();
+	await closePostgresPool(database);
 	process.exit(0);
 }
 

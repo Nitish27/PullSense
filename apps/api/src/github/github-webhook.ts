@@ -3,7 +3,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import type {
 	GitHubPullRequestAction,
 	GitHubPullRequestWebhookPayload,
-	PullReviewJob,
+	PullReviewJobDraft,
 } from "@ai-code-review/shared";
 
 const supportedPullRequestActions = new Set<GitHubPullRequestAction>([
@@ -40,7 +40,7 @@ export function verifyGitHubWebhookSignature(
 export function getPullReviewJobFromWebhook(
 	eventName: string | undefined,
 	payload: GitHubPullRequestWebhookPayload,
-): PullReviewJob | null {
+): PullReviewJobDraft | null {
 	if (eventName !== "pull_request") {
 		return null;
 	}

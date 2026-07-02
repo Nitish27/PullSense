@@ -24,9 +24,12 @@ export type PullReviewJob = {
 	installationId: number;
 	owner: string;
 	pullNumber: number;
+	reviewRunId: number;
 	repository: string;
 	headSha: string;
 };
+
+export type PullReviewJobDraft = Omit<PullReviewJob, "reviewRunId">;
 
 export type PullRequestReviewSeverity = "high" | "medium" | "low";
 export type PullRequestReviewConfidence = "high" | "medium" | "low";

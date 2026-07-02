@@ -68,17 +68,24 @@ describe("processReviewJob", () => {
 		const logger = {
 			info: vi.fn(),
 		};
+		const markReviewRunInProgress = vi.fn(async () => undefined);
+		const markReviewRunCompleted = vi.fn(async () => undefined);
+		const markReviewRunFailed = vi.fn(async () => undefined);
 		const job: PullReviewJob = {
 			action: "opened",
 			headSha: "abc123",
 			installationId: 42,
 			owner: "Nitish27",
 			pullNumber: 9,
+			reviewRunId: 501,
 			repository: "PullSense",
 		};
 
 		const result = await processReviewJob(job, {
 			fetchPullRequestFilesForInstallation,
+			markReviewRunCompleted,
+			markReviewRunFailed,
+			markReviewRunInProgress,
 			postPullRequestComment,
 			postPullRequestReview,
 			reviewPullRequest,
@@ -90,6 +97,9 @@ describe("processReviewJob", () => {
 			owner: "Nitish27",
 			pullNumber: 9,
 			repository: "PullSense",
+		});
+		expect(markReviewRunInProgress).toHaveBeenCalledWith({
+			reviewRunId: 501,
 		});
 		expect(reviewPullRequest).toHaveBeenCalledWith({
 			files: [
@@ -130,6 +140,20 @@ describe("processReviewJob", () => {
 			pullNumber: 9,
 			repository: "PullSense",
 		});
+		expect(markReviewRunCompleted).toHaveBeenCalledWith({
+			commentId: 101,
+			commentUrl:
+				"https://github.com/Nitish27/PullSense/pull/9#issuecomment-101",
+			completedAt: expect.any(Date),
+			inlineReviewId: 202,
+			inlineReviewUrl:
+				"https://github.com/Nitish27/PullSense/pull/9#pullrequestreview-202",
+			overallSeverity: "medium",
+			reviewRunId: 501,
+			summary:
+				"The worker pipeline is in place, but retry handling still needs work.",
+		});
+		expect(markReviewRunFailed).not.toHaveBeenCalled();
 		expect(result).toEqual({
 			comment: {
 				htmlUrl:
@@ -207,17 +231,24 @@ describe("processReviewJob", () => {
 		const logger = {
 			info: vi.fn(),
 		};
+		const markReviewRunInProgress = vi.fn(async () => undefined);
+		const markReviewRunCompleted = vi.fn(async () => undefined);
+		const markReviewRunFailed = vi.fn(async () => undefined);
 		const job: PullReviewJob = {
 			action: "synchronize",
 			headSha: "abc123",
 			installationId: 42,
 			owner: "Nitish27",
 			pullNumber: 9,
+			reviewRunId: 502,
 			repository: "PullSense",
 		};
 
 		await processReviewJob(job, {
 			fetchPullRequestFilesForInstallation,
+			markReviewRunCompleted,
+			markReviewRunFailed,
+			markReviewRunInProgress,
 			postPullRequestComment,
 			postPullRequestReview,
 			reviewPullRequest,
@@ -282,17 +313,24 @@ describe("processReviewJob", () => {
 		const logger = {
 			info: vi.fn(),
 		};
+		const markReviewRunInProgress = vi.fn(async () => undefined);
+		const markReviewRunCompleted = vi.fn(async () => undefined);
+		const markReviewRunFailed = vi.fn(async () => undefined);
 		const job: PullReviewJob = {
 			action: "synchronize",
 			headSha: "abc123",
 			installationId: 42,
 			owner: "Nitish27",
 			pullNumber: 9,
+			reviewRunId: 503,
 			repository: "PullSense",
 		};
 
 		await processReviewJob(job, {
 			fetchPullRequestFilesForInstallation,
+			markReviewRunCompleted,
+			markReviewRunFailed,
+			markReviewRunInProgress,
 			postPullRequestComment,
 			postPullRequestReview,
 			reviewPullRequest,
@@ -300,6 +338,9 @@ describe("processReviewJob", () => {
 		});
 		await processReviewJob(job, {
 			fetchPullRequestFilesForInstallation,
+			markReviewRunCompleted,
+			markReviewRunFailed,
+			markReviewRunInProgress,
 			postPullRequestComment,
 			postPullRequestReview,
 			reviewPullRequest,
@@ -311,5 +352,54 @@ describe("processReviewJob", () => {
 			"<!-- pullsense:inline-review:key=",
 		);
 		expect(inlineReviewBodies[0]).toBe(inlineReviewBodies[1]);
+	});
+
+	it("marks the review run as failed and rethrows when review processing errors", async () => {
+		const fetchPullRequestFilesForInstallation = vi.fn(async () => []);
+		const reviewPullRequest = vi.fn(async (): Promise<PullRequestReview> => {
+			throw new Error("Gemini request failed");
+		});
+		const postPullRequestComment = vi.fn();
+		const postPullRequestReview = vi.fn();
+		const logger = {
+			info: vi.fn(),
+		};
+		const markReviewRunInProgress = vi.fn(async () => undefined);
+		const markReviewRunCompleted = vi.fn(async () => undefined);
+		const markReviewRunFailed = vi.fn(async () => undefined);
+		const job: PullReviewJob = {
+			action: "opened",
+			headSha: "abc123",
+			installationId: 42,
+			owner: "Nitish27",
+			pullNumber: 9,
+			reviewRunId: 504,
+			repository: "PullSense",
+		};
+
+		await expect(
+			processReviewJob(job, {
+				fetchPullRequestFilesForInstallation,
+				markReviewRunCompleted,
+				markReviewRunFailed,
+				markReviewRunInProgress,
+				postPullRequestComment,
+				postPullRequestReview,
+				reviewPullRequest,
+				logger,
+			}),
+		).rejects.toThrow("Gemini request failed");
+
+		expect(markReviewRunInProgress).toHaveBeenCalledWith({
+			reviewRunId: 504,
+		});
+		expect(markReviewRunCompleted).not.toHaveBeenCalled();
+		expect(markReviewRunFailed).toHaveBeenCalledWith({
+			completedAt: expect.any(Date),
+			errorMessage: "Gemini request failed",
+			reviewRunId: 504,
+		});
+		expect(postPullRequestComment).not.toHaveBeenCalled();
+		expect(postPullRequestReview).not.toHaveBeenCalled();
 	});
 });

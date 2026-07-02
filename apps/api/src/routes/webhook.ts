@@ -1,6 +1,6 @@
 import type { GitHubPullRequestWebhookPayload } from "@ai-code-review/shared";
 import type { FastifyInstance, FastifyRequest } from "fastify";
-
+import type { ReviewRunStore } from "../db/review-runs";
 import {
 	getPullReviewJobFromWebhook,
 	verifyGitHubWebhookSignature,
@@ -9,6 +9,7 @@ import type { ReviewQueue } from "../queue/review-queue";
 
 type RegisterWebhookRoutesOptions = {
 	reviewQueue: ReviewQueue;
+	reviewRunStore: ReviewRunStore;
 	webhookSecret: string;
 };
 
@@ -70,7 +71,19 @@ export function registerWebhookRoutes(
 				return reply.code(202).send({ status: "ignored" });
 			}
 
-			await options.reviewQueue.enqueueReviewJob(reviewJob);
+			const reviewRun = await options.reviewRunStore.createQueuedReviewRun({
+				headSha: reviewJob.headSha,
+				installationId: reviewJob.installationId,
+				owner: reviewJob.owner,
+				pullNumber: reviewJob.pullNumber,
+				pullRequestAction: reviewJob.action,
+				repository: reviewJob.repository,
+			});
+
+			await options.reviewQueue.enqueueReviewJob({
+				...reviewJob,
+				reviewRunId: reviewRun.id,
+			});
 
 			app.log.info(
 				{
@@ -79,6 +92,7 @@ export function registerWebhookRoutes(
 					installationId: reviewJob.installationId,
 					owner: reviewJob.owner,
 					pullNumber: reviewJob.pullNumber,
+					reviewRunId: reviewRun.id,
 					repository: reviewJob.repository,
 				},
 				"Accepted GitHub webhook and enqueued review job",
