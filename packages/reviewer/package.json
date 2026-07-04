@@ -5,9 +5,13 @@
 	"type": "module",
 	"exports": "./src/index.ts",
 	"scripts": {
-		"build": "tsc -p tsconfig.json --noEmit false",
+		"build": "tsc -p tsconfig.build.json",
 		"lint": "biome check src",
-		"test": "node -e \"console.log('No reviewer package tests yet')\"",
+		"test": "vitest run",
 		"typecheck": "tsc -p tsconfig.json --noEmit"
+	},
+	"dependencies": {
+		"@ai-code-review/shared": "workspace:*",
+		"zod": "^4.0.0"
 	}
 }

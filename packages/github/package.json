@@ -5,9 +5,14 @@
 	"type": "module",
 	"exports": "./src/index.ts",
 	"scripts": {
-		"build": "tsc -p tsconfig.json --noEmit false",
+		"build": "tsc -p tsconfig.build.json",
 		"lint": "biome check src",
-		"test": "node -e \"console.log('No github package tests yet')\"",
+		"test": "vitest run",
 		"typecheck": "tsc -p tsconfig.json --noEmit"
+	},
+	"dependencies": {
+		"@ai-code-review/shared": "workspace:*",
+		"@octokit/auth-app": "^8.2.0",
+		"@octokit/rest": "^22.0.1"
 	}
 }

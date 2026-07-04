@@ -6,7 +6,7 @@
 		"moduleResolution": "Bundler",
 		"noEmit": false,
 		"outDir": "dist",
-		"rootDir": "src",
+		"rootDir": "../..",
 		"types": ["node", "vitest/globals"]
 	},
 	"include": ["src/**/*.ts"]
