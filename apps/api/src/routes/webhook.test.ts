@@ -61,6 +61,7 @@ function createReviewRunStore(
 	>,
 ) {
 	return {
+		attachCheckRunToReviewRun: vi.fn(async () => undefined),
 		createQueuedReviewRun,
 		getLatestReviewRunForPullRequest: vi.fn(async () => null),
 		getReviewRunById: vi.fn(async () => null),
@@ -79,14 +80,19 @@ describe("/webhook", () => {
 		const createQueuedReviewRun = vi.fn(async () =>
 			createQueuedReviewRunRecord(321),
 		);
+		const createCheckRun = vi.fn(async () => ({
+			id: 8801,
+		}));
+		const reviewRunStore = createReviewRunStore(createQueuedReviewRun);
 		const body = JSON.stringify(pullRequestPayload);
 		const app = await createApp({
+			createCheckRun,
 			reviewQueue: {
 				enqueueReviewJob,
 			},
-			reviewRunStore: createReviewRunStore(createQueuedReviewRun),
+			reviewRunStore: reviewRunStore,
 			webhookSecret,
-		});
+		} as never);
 
 		const response = await app.inject({
 			method: "POST",
@@ -111,6 +117,65 @@ describe("/webhook", () => {
 			pullRequestAction: "opened",
 			repository: "PullSense",
 		});
+		expect(createCheckRun).toHaveBeenCalledWith({
+			headSha: "deadbeefcafebabe",
+			installationId: 99,
+			owner: "Nitish27",
+			repository: "PullSense",
+			status: "queued",
+			summary: "PullSense queued this pull request for AI review.",
+			title: "Review queued",
+		});
+		expect(reviewRunStore.attachCheckRunToReviewRun).toHaveBeenCalledWith({
+			checkRunId: 8801,
+			reviewRunId: 321,
+		});
+		expect(enqueueReviewJob).toHaveBeenCalledWith({
+			action: "opened",
+			headSha: "deadbeefcafebabe",
+			installationId: 99,
+			owner: "Nitish27",
+			pullNumber: 7,
+			reviewRunId: 321,
+			repository: "PullSense",
+		});
+	});
+
+	it("still enqueues review work when queued check run creation fails", async () => {
+		const enqueueReviewJob = vi.fn<(job: PullReviewJob) => Promise<void>>(
+			async () => undefined,
+		);
+		const createQueuedReviewRun = vi.fn(async () =>
+			createQueuedReviewRunRecord(321),
+		);
+		const createCheckRun = vi.fn(async () => {
+			throw new Error("Checks permission missing");
+		});
+		const reviewRunStore = createReviewRunStore(createQueuedReviewRun);
+		const body = JSON.stringify(pullRequestPayload);
+		const app = await createApp({
+			createCheckRun,
+			reviewQueue: {
+				enqueueReviewJob,
+			},
+			reviewRunStore: reviewRunStore,
+			webhookSecret,
+		} as never);
+
+		const response = await app.inject({
+			method: "POST",
+			url: "/webhook",
+			headers: {
+				"x-github-event": "pull_request",
+				"x-hub-signature-256": createGitHubSignature(webhookSecret, body),
+				"content-type": "application/json",
+			},
+			payload: body,
+		});
+
+		expect(response.statusCode).toBe(202);
+		expect(createCheckRun).toHaveBeenCalled();
+		expect(reviewRunStore.attachCheckRunToReviewRun).not.toHaveBeenCalled();
 		expect(enqueueReviewJob).toHaveBeenCalledWith({
 			action: "opened",
 			headSha: "deadbeefcafebabe",

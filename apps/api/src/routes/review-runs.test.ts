@@ -54,6 +54,7 @@ describe("GET /repos/:owner/:repository/pulls/:pullNumber/review-runs", () => {
 		const listReviewRunsForPullRequest = vi.fn(async () => [latest, older]);
 		const app = createApp({
 			reviewRunStore: {
+				attachCheckRunToReviewRun: vi.fn(async () => undefined),
 				createQueuedReviewRun: vi.fn(async () => createReviewRun(10)),
 				getLatestReviewRunForPullRequest,
 				getReviewRunById: vi.fn(async () => null),
@@ -165,6 +166,7 @@ describe("GET /repos/:owner/:repository/pulls/:pullNumber/review-runs", () => {
 		const listReviewRunsForPullRequest = vi.fn(async () => []);
 		const app = createApp({
 			reviewRunStore: {
+				attachCheckRunToReviewRun: vi.fn(async () => undefined),
 				createQueuedReviewRun: vi.fn(async () => createReviewRun(10)),
 				getLatestReviewRunForPullRequest,
 				getReviewRunById: vi.fn(async () => null),

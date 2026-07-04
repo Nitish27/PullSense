@@ -79,6 +79,11 @@ export type ReviewRunPullRequestScope = {
 	repository: string;
 };
 
+export type AttachCheckRunToReviewRunInput = {
+	checkRunId: number;
+	reviewRunId: number;
+};
+
 export type MarkReviewRunInProgressInput = {
 	reviewRunId: number;
 	startedAt?: Date;
@@ -102,6 +107,9 @@ export type MarkReviewRunFailedInput = {
 };
 
 export type ReviewRunStore = {
+	attachCheckRunToReviewRun(
+		input: AttachCheckRunToReviewRunInput,
+	): Promise<void>;
 	createQueuedReviewRun(input: CreateReviewRunInput): Promise<ReviewRunRecord>;
 	getLatestReviewRunForPullRequest(
 		input: ReviewRunPullRequestScope,
@@ -263,6 +271,22 @@ export async function getReviewRunById(
 	return row ? mapReviewRunRow(row) : null;
 }
 
+export async function attachCheckRunToReviewRun(
+	client: ReviewRunDatabaseClient,
+	input: AttachCheckRunToReviewRunInput,
+) {
+	await client.query(
+		`
+			update review_runs
+			set
+				check_run_id = $1,
+				updated_at = now()
+			where id = $2
+		`,
+		[input.checkRunId, input.reviewRunId],
+	);
+}
+
 export async function markReviewRunInProgress(
 	client: ReviewRunDatabaseClient,
 	input: MarkReviewRunInProgressInput,
@@ -344,6 +368,8 @@ export function createPostgresReviewRunStore(
 	client: ReviewRunDatabaseClient,
 ): ReviewRunStore {
 	return {
+		attachCheckRunToReviewRun: (input) =>
+			attachCheckRunToReviewRun(client, input),
 		createQueuedReviewRun: (input) => createReviewRun(client, input),
 		getLatestReviewRunForPullRequest: (input) =>
 			getLatestReviewRunForPullRequest(client, input),
@@ -358,6 +384,9 @@ export function createPostgresReviewRunStore(
 
 export function createNoopReviewRunStore(): ReviewRunStore {
 	return {
+		async attachCheckRunToReviewRun() {
+			return undefined;
+		},
 		async createQueuedReviewRun(input) {
 			const now = new Date();
 

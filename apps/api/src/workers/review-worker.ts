@@ -8,6 +8,7 @@ import {
 	postPullRequestCommentForInstallation,
 	postPullRequestReviewForInstallation,
 	readGitHubAppConfigFromEnv,
+	updateCheckRunForInstallation,
 } from "@ai-code-review/github";
 import {
 	createGeminiReviewGenerator,
@@ -28,6 +29,9 @@ type ReviewWorkerDependencies = {
 	fetchPullRequestFilesForInstallation(
 		input: PullRequestFilesInput & { installationId: number },
 	): Promise<PullRequestFilesResult>;
+	getReviewRunById(reviewRunId: number): Promise<{
+		checkRunId: number | null;
+	} | null>;
 	markReviewRunCompleted(input: {
 		commentId: number;
 		commentUrl: string | null;
@@ -73,7 +77,19 @@ type ReviewWorkerDependencies = {
 	reviewPullRequest(input: PullRequestReviewInput): Promise<PullRequestReview>;
 	logger: {
 		info(payload: unknown, message?: string): void;
+		warn(payload: unknown, message?: string): void;
 	};
+	updateCheckRun(input: {
+		checkRunId: number;
+		conclusion?: "success" | "failure" | "neutral" | "skipped";
+		detailsUrl?: string;
+		installationId: number;
+		owner: string;
+		repository: string;
+		status: "queued" | "in_progress" | "completed";
+		summary: string;
+		title: string;
+	}): Promise<void>;
 };
 
 const pullSenseSummaryMarker = "<!-- pullsense:summary -->";
@@ -82,6 +98,20 @@ export async function processReviewJob(
 	job: PullReviewJob,
 	dependencies: ReviewWorkerDependencies,
 ) {
+	const reviewRun = await dependencies.getReviewRunById(job.reviewRunId);
+
+	await syncCheckRunSafely(
+		reviewRun?.checkRunId ?? null,
+		{
+			installationId: job.installationId,
+			owner: job.owner,
+			repository: job.repository,
+			status: "in_progress",
+			summary: "PullSense is reviewing the latest pull request changes.",
+			title: "Review in progress",
+		},
+		dependencies,
+	);
 	await dependencies.markReviewRunInProgress({
 		reviewRunId: job.reviewRunId,
 	});
@@ -125,6 +155,20 @@ export async function processReviewJob(
 						repository: job.repository,
 					})
 				: null;
+		await syncCheckRunSafely(
+			reviewRun?.checkRunId ?? null,
+			{
+				conclusion: "success",
+				detailsUrl: comment.htmlUrl,
+				installationId: job.installationId,
+				owner: job.owner,
+				repository: job.repository,
+				status: "completed",
+				summary: review.summary,
+				title: "Review completed",
+			},
+			dependencies,
+		);
 
 		await dependencies.markReviewRunCompleted({
 			commentId: comment.id,
@@ -163,9 +207,24 @@ export async function processReviewJob(
 
 		return result;
 	} catch (error) {
+		const errorMessage = error instanceof Error ? error.message : String(error);
+
+		await syncCheckRunSafely(
+			reviewRun?.checkRunId ?? null,
+			{
+				conclusion: "failure",
+				installationId: job.installationId,
+				owner: job.owner,
+				repository: job.repository,
+				status: "completed",
+				summary: errorMessage,
+				title: "Review failed",
+			},
+			dependencies,
+		);
 		await dependencies.markReviewRunFailed({
 			completedAt: new Date(),
-			errorMessage: error instanceof Error ? error.message : String(error),
+			errorMessage,
 			reviewRunId: job.reviewRunId,
 		});
 
@@ -190,6 +249,9 @@ export function createReviewWorker(options?: {
 			processReviewJob(job.data, {
 				fetchPullRequestFilesForInstallation: (input) =>
 					fetchPullRequestFilesForInstallation(githubAppConfig, input),
+				getReviewRunById: (reviewRunId) =>
+					options?.reviewRunStore.getReviewRunById(reviewRunId) ??
+					Promise.resolve(null),
 				markReviewRunCompleted: (input) =>
 					options?.reviewRunStore.markReviewRunCompleted(input) ??
 					Promise.resolve(),
@@ -213,11 +275,54 @@ export function createReviewWorker(options?: {
 						model: geminiReviewConfig.model,
 					}),
 				logger: console,
+				updateCheckRun: (input) =>
+					updateCheckRunForInstallation(githubAppConfig, {
+						...input,
+						installationId: input.installationId,
+					}).then(() => undefined),
 			}),
 		{
 			connection,
 		},
 	);
+}
+
+async function syncCheckRunSafely(
+	checkRunId: number | null,
+	input: {
+		conclusion?: "success" | "failure" | "neutral" | "skipped";
+		detailsUrl?: string;
+		installationId: number;
+		owner: string;
+		repository: string;
+		status: "queued" | "in_progress" | "completed";
+		summary: string;
+		title: string;
+	},
+	dependencies: ReviewWorkerDependencies,
+) {
+	if (!checkRunId) {
+		return;
+	}
+
+	try {
+		await dependencies.updateCheckRun({
+			...input,
+			checkRunId,
+		});
+	} catch (error) {
+		dependencies.logger.warn(
+			{
+				checkRunId,
+				error,
+				installationId: input.installationId,
+				owner: input.owner,
+				repository: input.repository,
+				status: input.status,
+			},
+			"Failed to update GitHub check run",
+		);
+	}
 }
 
 export function formatPullRequestReviewComment(review: PullRequestReview) {

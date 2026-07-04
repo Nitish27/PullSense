@@ -8,6 +8,15 @@ import {
 import type { ReviewQueue } from "../queue/review-queue";
 
 type RegisterWebhookRoutesOptions = {
+	createCheckRun(input: {
+		headSha: string;
+		installationId: number;
+		owner: string;
+		repository: string;
+		status: "queued" | "in_progress";
+		summary: string;
+		title: string;
+	}): Promise<{ id: number } | null>;
 	reviewQueue: ReviewQueue;
 	reviewRunStore: ReviewRunStore;
 	webhookSecret: string;
@@ -79,6 +88,36 @@ export function registerWebhookRoutes(
 				pullRequestAction: reviewJob.action,
 				repository: reviewJob.repository,
 			});
+			try {
+				const checkRun = await options.createCheckRun({
+					headSha: reviewJob.headSha,
+					installationId: reviewJob.installationId,
+					owner: reviewJob.owner,
+					repository: reviewJob.repository,
+					status: "queued",
+					summary: "PullSense queued this pull request for AI review.",
+					title: "Review queued",
+				});
+
+				if (checkRun) {
+					await options.reviewRunStore.attachCheckRunToReviewRun({
+						checkRunId: checkRun.id,
+						reviewRunId: reviewRun.id,
+					});
+				}
+			} catch (error) {
+				app.log.warn(
+					{
+						error,
+						installationId: reviewJob.installationId,
+						owner: reviewJob.owner,
+						pullNumber: reviewJob.pullNumber,
+						repository: reviewJob.repository,
+						reviewRunId: reviewRun.id,
+					},
+					"Failed to create queued GitHub check run",
+				);
+			}
 
 			await options.reviewQueue.enqueueReviewJob({
 				...reviewJob,

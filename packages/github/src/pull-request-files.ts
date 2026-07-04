@@ -116,9 +116,52 @@ export type PullRequestReviewClient = {
 	};
 };
 
+export type PullRequestCheckRunClient = {
+	checks: {
+		create(input: {
+			details_url?: string;
+			external_id?: string;
+			head_sha: string;
+			name: string;
+			output: {
+				summary: string;
+				title: string;
+			};
+			owner: string;
+			repo: string;
+			status: "queued" | "in_progress";
+		}): Promise<{
+			data: {
+				html_url?: string | null;
+				id: number;
+			};
+		}>;
+		update(input: {
+			check_run_id: number;
+			completed_at?: string;
+			conclusion?: "success" | "failure" | "neutral" | "skipped";
+			details_url?: string;
+			name: string;
+			output: {
+				summary: string;
+				title: string;
+			};
+			owner: string;
+			repo: string;
+			status: "queued" | "in_progress" | "completed";
+		}): Promise<{
+			data: {
+				html_url?: string | null;
+				id: number;
+			};
+		}>;
+	};
+};
+
 export type GitHubInstallationClient = PullRequestFilesClient &
 	PullRequestCommentClient &
-	PullRequestReviewClient;
+	PullRequestReviewClient &
+	PullRequestCheckRunClient;
 
 export type PullRequestFilesInput = {
 	owner: string;

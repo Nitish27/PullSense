@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
+	attachCheckRunToReviewRun,
 	createNoopReviewRunStore,
 	createReviewRun,
 	ensureReviewRunsTable,
@@ -36,6 +37,30 @@ describe("ensureReviewRunsTable", () => {
 		expect(statements[0]).toContain("inline_review_id bigint");
 		expect(statements[0]).toContain("error_message text");
 		expect(statements[0]).toContain("created_at timestamptz not null");
+	});
+});
+
+describe("review run check run linkage", () => {
+	it("stores a GitHub check_run_id on the persisted review run", async () => {
+		const statements: string[] = [];
+		const values: unknown[][] = [];
+		const client: ReviewRunDatabaseClient = {
+			query: vi.fn(async (text: string, params?: unknown[]) => {
+				statements.push(text);
+				values.push(params ?? []);
+
+				return { rows: [] };
+			}),
+		};
+
+		await attachCheckRunToReviewRun(client, {
+			checkRunId: 8801,
+			reviewRunId: 55,
+		});
+
+		expect(statements[0]).toContain("update review_runs");
+		expect(statements[0]).toContain("check_run_id = $1");
+		expect(values[0]).toEqual([8801, 55]);
 	});
 });
 
@@ -423,5 +448,11 @@ describe("review run lifecycle updates", () => {
 				repository: "PullSense",
 			}),
 		).resolves.toBeNull();
+		await expect(
+			store.attachCheckRunToReviewRun({
+				checkRunId: 1,
+				reviewRunId: 0,
+			}),
+		).resolves.toBeUndefined();
 	});
 });

@@ -22,6 +22,7 @@ What exists today:
 - PostgreSQL connection/bootstrap foundation for persisted review runs
 - persisted review run lifecycle states: `queued`, `in_progress`, `completed`, and `failed`
 - PR-scoped review status API backed by persisted `review_runs`
+- best-effort GitHub Check Runs sync for queued, in-progress, completed, and failed review states
 - BullMQ worker flow for PR review jobs
 - changed-file fetch from GitHub pull requests
 - Gemini-powered structured PR review generation
@@ -32,7 +33,7 @@ What exists today:
 What does not exist yet:
 - repository cloning/indexing
 - pgvector retrieval
-- check runs / richer review status UI
+- richer review status UI
 - user-facing review history screens beyond the new API foundation
 
 ## Workspace Layout
@@ -127,11 +128,13 @@ pnpm dev:web
 8. Watch the worker logs for the queued review job.
 9. Confirm PullSense posts a `## PullSense review` summary comment in the PR conversation.
 10. If high-confidence findings were anchored successfully, confirm GitHub also shows a grouped inline review in the PR review / Files changed UI.
+11. If the GitHub App has `Checks: Read and write` repository permission, confirm the PR also shows a `PullSense review` check run moving through queued/in-progress/completed states.
 
 Current visible output:
 
 - one PR summary comment in the GitHub conversation that PullSense updates in place
 - optional grouped inline review comments on anchored diff lines, only reposted when the anchored high-confidence findings materially change
+- one GitHub check run in the PR Checks area when the app has Checks write permission
 - structured severity plus findings from Gemini
 - one local API route for persisted PR review status and recent run history:
   `GET /repos/:owner/:repository/pulls/:pullNumber/review-runs`
@@ -156,8 +159,10 @@ Current automated coverage includes:
 
 - API env parsing for `DATABASE_URL`
 - Postgres review run schema bootstrap, repository mapping, and lifecycle updates
+- persisted `check_run_id` linkage on review runs
 - PR-scoped persisted review run queries and status route responses
 - webhook parsing and queueing
+- GitHub check run create/update helpers plus webhook/worker lifecycle sync
 - GitHub PR file fetch normalization
 - GitHub summary comment upsert, grouped review submission, and diff anchoring
 - Gemini review package behavior
@@ -197,6 +202,6 @@ Important values:
 The next implementation milestones are:
 
 - improve review quality and prompt shaping
-- add check runs / richer review status UI
+- add richer review status UI
 - add repository indexing and RAG-backed context
 - expand persistence and review history

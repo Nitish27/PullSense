@@ -67,10 +67,15 @@ describe("processReviewJob", () => {
 		);
 		const logger = {
 			info: vi.fn(),
+			warn: vi.fn(),
 		};
+		const getReviewRunById = vi.fn(async () => ({
+			checkRunId: 8801,
+		}));
 		const markReviewRunInProgress = vi.fn(async () => undefined);
 		const markReviewRunCompleted = vi.fn(async () => undefined);
 		const markReviewRunFailed = vi.fn(async () => undefined);
+		const updateCheckRun = vi.fn(async () => undefined);
 		const job: PullReviewJob = {
 			action: "opened",
 			headSha: "abc123",
@@ -83,12 +88,14 @@ describe("processReviewJob", () => {
 
 		const result = await processReviewJob(job, {
 			fetchPullRequestFilesForInstallation,
+			getReviewRunById,
 			markReviewRunCompleted,
 			markReviewRunFailed,
 			markReviewRunInProgress,
 			postPullRequestComment,
 			postPullRequestReview,
 			reviewPullRequest,
+			updateCheckRun,
 			logger,
 		});
 
@@ -100,6 +107,17 @@ describe("processReviewJob", () => {
 		});
 		expect(markReviewRunInProgress).toHaveBeenCalledWith({
 			reviewRunId: 501,
+		});
+		expect(updateCheckRun).toHaveBeenNthCalledWith(1, {
+			checkRunId: 8801,
+			conclusion: undefined,
+			detailsUrl: undefined,
+			installationId: 42,
+			owner: "Nitish27",
+			repository: "PullSense",
+			status: "in_progress",
+			summary: "PullSense is reviewing the latest pull request changes.",
+			title: "Review in progress",
 		});
 		expect(reviewPullRequest).toHaveBeenCalledWith({
 			files: [
@@ -152,6 +170,19 @@ describe("processReviewJob", () => {
 			reviewRunId: 501,
 			summary:
 				"The worker pipeline is in place, but retry handling still needs work.",
+		});
+		expect(updateCheckRun).toHaveBeenNthCalledWith(2, {
+			checkRunId: 8801,
+			conclusion: "success",
+			detailsUrl:
+				"https://github.com/Nitish27/PullSense/pull/9#issuecomment-101",
+			installationId: 42,
+			owner: "Nitish27",
+			repository: "PullSense",
+			status: "completed",
+			summary:
+				"The worker pipeline is in place, but retry handling still needs work.",
+			title: "Review completed",
 		});
 		expect(markReviewRunFailed).not.toHaveBeenCalled();
 		expect(result).toEqual({
@@ -230,10 +261,15 @@ describe("processReviewJob", () => {
 		const postPullRequestReview = vi.fn();
 		const logger = {
 			info: vi.fn(),
+			warn: vi.fn(),
 		};
+		const getReviewRunById = vi.fn(async () => ({
+			checkRunId: null,
+		}));
 		const markReviewRunInProgress = vi.fn(async () => undefined);
 		const markReviewRunCompleted = vi.fn(async () => undefined);
 		const markReviewRunFailed = vi.fn(async () => undefined);
+		const updateCheckRun = vi.fn(async () => undefined);
 		const job: PullReviewJob = {
 			action: "synchronize",
 			headSha: "abc123",
@@ -246,12 +282,14 @@ describe("processReviewJob", () => {
 
 		await processReviewJob(job, {
 			fetchPullRequestFilesForInstallation,
+			getReviewRunById,
 			markReviewRunCompleted,
 			markReviewRunFailed,
 			markReviewRunInProgress,
 			postPullRequestComment,
 			postPullRequestReview,
 			reviewPullRequest,
+			updateCheckRun,
 			logger,
 		});
 
@@ -263,6 +301,7 @@ describe("processReviewJob", () => {
 			repository: "PullSense",
 		});
 		expect(postPullRequestReview).not.toHaveBeenCalled();
+		expect(updateCheckRun).not.toHaveBeenCalled();
 	});
 
 	it("formats a stable inline review marker so repeated runs with the same findings can be deduped", async () => {
@@ -312,10 +351,15 @@ describe("processReviewJob", () => {
 		);
 		const logger = {
 			info: vi.fn(),
+			warn: vi.fn(),
 		};
+		const getReviewRunById = vi.fn(async () => ({
+			checkRunId: null,
+		}));
 		const markReviewRunInProgress = vi.fn(async () => undefined);
 		const markReviewRunCompleted = vi.fn(async () => undefined);
 		const markReviewRunFailed = vi.fn(async () => undefined);
+		const updateCheckRun = vi.fn(async () => undefined);
 		const job: PullReviewJob = {
 			action: "synchronize",
 			headSha: "abc123",
@@ -328,22 +372,26 @@ describe("processReviewJob", () => {
 
 		await processReviewJob(job, {
 			fetchPullRequestFilesForInstallation,
+			getReviewRunById,
 			markReviewRunCompleted,
 			markReviewRunFailed,
 			markReviewRunInProgress,
 			postPullRequestComment,
 			postPullRequestReview,
 			reviewPullRequest,
+			updateCheckRun,
 			logger,
 		});
 		await processReviewJob(job, {
 			fetchPullRequestFilesForInstallation,
+			getReviewRunById,
 			markReviewRunCompleted,
 			markReviewRunFailed,
 			markReviewRunInProgress,
 			postPullRequestComment,
 			postPullRequestReview,
 			reviewPullRequest,
+			updateCheckRun,
 			logger,
 		});
 
@@ -363,10 +411,15 @@ describe("processReviewJob", () => {
 		const postPullRequestReview = vi.fn();
 		const logger = {
 			info: vi.fn(),
+			warn: vi.fn(),
 		};
+		const getReviewRunById = vi.fn(async () => ({
+			checkRunId: 9911,
+		}));
 		const markReviewRunInProgress = vi.fn(async () => undefined);
 		const markReviewRunCompleted = vi.fn(async () => undefined);
 		const markReviewRunFailed = vi.fn(async () => undefined);
+		const updateCheckRun = vi.fn(async () => undefined);
 		const job: PullReviewJob = {
 			action: "opened",
 			headSha: "abc123",
@@ -380,12 +433,14 @@ describe("processReviewJob", () => {
 		await expect(
 			processReviewJob(job, {
 				fetchPullRequestFilesForInstallation,
+				getReviewRunById,
 				markReviewRunCompleted,
 				markReviewRunFailed,
 				markReviewRunInProgress,
 				postPullRequestComment,
 				postPullRequestReview,
 				reviewPullRequest,
+				updateCheckRun,
 				logger,
 			}),
 		).rejects.toThrow("Gemini request failed");
@@ -398,6 +453,28 @@ describe("processReviewJob", () => {
 			completedAt: expect.any(Date),
 			errorMessage: "Gemini request failed",
 			reviewRunId: 504,
+		});
+		expect(updateCheckRun).toHaveBeenNthCalledWith(1, {
+			checkRunId: 9911,
+			conclusion: undefined,
+			detailsUrl: undefined,
+			installationId: 42,
+			owner: "Nitish27",
+			repository: "PullSense",
+			status: "in_progress",
+			summary: "PullSense is reviewing the latest pull request changes.",
+			title: "Review in progress",
+		});
+		expect(updateCheckRun).toHaveBeenNthCalledWith(2, {
+			checkRunId: 9911,
+			conclusion: "failure",
+			detailsUrl: undefined,
+			installationId: 42,
+			owner: "Nitish27",
+			repository: "PullSense",
+			status: "completed",
+			summary: "Gemini request failed",
+			title: "Review failed",
 		});
 		expect(postPullRequestComment).not.toHaveBeenCalled();
 		expect(postPullRequestReview).not.toHaveBeenCalled();
