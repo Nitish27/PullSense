@@ -80,6 +80,39 @@ export function registerWebhookRoutes(
 				return reply.code(202).send({ status: "ignored" });
 			}
 
+			const latestReviewRun =
+				await options.reviewRunStore.getLatestReviewRunForPullRequest({
+					owner: reviewJob.owner,
+					pullNumber: reviewJob.pullNumber,
+					repository: reviewJob.repository,
+				});
+
+			if (
+				latestReviewRun &&
+				latestReviewRun.headSha === reviewJob.headSha &&
+				latestReviewRun.status !== "failed"
+			) {
+				app.log.info(
+					{
+						action: reviewJob.action,
+						eventName,
+						headSha: reviewJob.headSha,
+						installationId: reviewJob.installationId,
+						owner: reviewJob.owner,
+						pullNumber: reviewJob.pullNumber,
+						repository: reviewJob.repository,
+						reviewRunId: latestReviewRun.id,
+						status: latestReviewRun.status,
+					},
+					"Skipped duplicate GitHub webhook for an already-reviewed head sha",
+				);
+
+				return reply.code(202).send({
+					reviewRunId: latestReviewRun.id,
+					status: "duplicate",
+				});
+			}
+
 			const reviewRun = await options.reviewRunStore.createQueuedReviewRun({
 				headSha: reviewJob.headSha,
 				installationId: reviewJob.installationId,

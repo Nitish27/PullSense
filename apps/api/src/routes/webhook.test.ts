@@ -5,6 +5,7 @@ import type {
 import { describe, expect, it, vi } from "vitest";
 
 import { createApp } from "../app";
+import type { ReviewRunRecord } from "../db/review-runs";
 import { createGitHubSignature } from "../github/github-webhook";
 
 const webhookSecret = "route-secret";
@@ -27,7 +28,7 @@ const pullRequestPayload: GitHubPullRequestWebhookPayload = {
 	},
 };
 
-function createQueuedReviewRunRecord(id: number) {
+function createQueuedReviewRunRecord(id: number): ReviewRunRecord {
 	const now = new Date("2026-07-03T11:00:00.000Z");
 
 	return {
@@ -55,6 +56,16 @@ function createQueuedReviewRunRecord(id: number) {
 	};
 }
 
+function createReviewRunRecord(
+	id: number,
+	overrides: Partial<ReviewRunRecord> = {},
+): ReviewRunRecord {
+	return {
+		...createQueuedReviewRunRecord(id),
+		...overrides,
+	};
+}
+
 function createReviewRunStore(
 	createQueuedReviewRun: () => Promise<
 		ReturnType<typeof createQueuedReviewRunRecord>
@@ -63,7 +74,14 @@ function createReviewRunStore(
 	return {
 		attachCheckRunToReviewRun: vi.fn(async () => undefined),
 		createQueuedReviewRun,
-		getLatestReviewRunForPullRequest: vi.fn(async () => null),
+		getLatestReviewRunForPullRequest:
+			vi.fn<
+				(input: {
+					owner: string;
+					pullNumber: number;
+					repository: string;
+				}) => Promise<ReviewRunRecord | null>
+			>(async () => null),
 		getReviewRunById: vi.fn(async () => null),
 		listReviewRunsForPullRequest: vi.fn(async () => []),
 		markReviewRunCompleted: vi.fn(async () => undefined),
@@ -176,6 +194,124 @@ describe("/webhook", () => {
 		expect(response.statusCode).toBe(202);
 		expect(createCheckRun).toHaveBeenCalled();
 		expect(reviewRunStore.attachCheckRunToReviewRun).not.toHaveBeenCalled();
+		expect(enqueueReviewJob).toHaveBeenCalledWith({
+			action: "opened",
+			headSha: "deadbeefcafebabe",
+			installationId: 99,
+			owner: "Nitish27",
+			pullNumber: 7,
+			reviewRunId: 321,
+			repository: "PullSense",
+		});
+	});
+
+	it("skips duplicate review work when the latest run already covers the same head sha", async () => {
+		const enqueueReviewJob = vi.fn<(job: PullReviewJob) => Promise<void>>(
+			async () => undefined,
+		);
+		const createQueuedReviewRun = vi.fn(async () =>
+			createQueuedReviewRunRecord(321),
+		);
+		const createCheckRun = vi.fn(async () => ({
+			id: 8801,
+		}));
+		const reviewRunStore = createReviewRunStore(createQueuedReviewRun);
+		reviewRunStore.getLatestReviewRunForPullRequest = vi.fn(async () =>
+			createReviewRunRecord(320, {
+				headSha: "deadbeefcafebabe",
+				status: "completed",
+			}),
+		);
+		const body = JSON.stringify(pullRequestPayload);
+		const app = await createApp({
+			createCheckRun,
+			reviewQueue: {
+				enqueueReviewJob,
+			},
+			reviewRunStore,
+			webhookSecret,
+		} as never);
+
+		const response = await app.inject({
+			method: "POST",
+			url: "/webhook",
+			headers: {
+				"x-github-event": "pull_request",
+				"x-hub-signature-256": createGitHubSignature(webhookSecret, body),
+				"content-type": "application/json",
+			},
+			payload: body,
+		});
+
+		expect(response.statusCode).toBe(202);
+		expect(response.json()).toEqual({
+			reviewRunId: 320,
+			status: "duplicate",
+		});
+		expect(reviewRunStore.getLatestReviewRunForPullRequest).toHaveBeenCalledWith({
+			owner: "Nitish27",
+			pullNumber: 7,
+			repository: "PullSense",
+		});
+		expect(createQueuedReviewRun).not.toHaveBeenCalled();
+		expect(createCheckRun).not.toHaveBeenCalled();
+		expect(reviewRunStore.attachCheckRunToReviewRun).not.toHaveBeenCalled();
+		expect(enqueueReviewJob).not.toHaveBeenCalled();
+	});
+
+	it("allows reruns for the same head sha when the latest review run failed", async () => {
+		const enqueueReviewJob = vi.fn<(job: PullReviewJob) => Promise<void>>(
+			async () => undefined,
+		);
+		const createQueuedReviewRun = vi.fn(async () =>
+			createQueuedReviewRunRecord(321),
+		);
+		const createCheckRun = vi.fn(async () => ({
+			id: 8801,
+		}));
+		const reviewRunStore = createReviewRunStore(createQueuedReviewRun);
+		reviewRunStore.getLatestReviewRunForPullRequest = vi.fn(async () =>
+			createReviewRunRecord(320, {
+				conclusion: "failure",
+				errorMessage: "Gemini request failed",
+				headSha: "deadbeefcafebabe",
+				status: "failed",
+			}),
+		);
+		const body = JSON.stringify(pullRequestPayload);
+		const app = await createApp({
+			createCheckRun,
+			reviewQueue: {
+				enqueueReviewJob,
+			},
+			reviewRunStore,
+			webhookSecret,
+		} as never);
+
+		const response = await app.inject({
+			method: "POST",
+			url: "/webhook",
+			headers: {
+				"x-github-event": "pull_request",
+				"x-hub-signature-256": createGitHubSignature(webhookSecret, body),
+				"content-type": "application/json",
+			},
+			payload: body,
+		});
+
+		expect(response.statusCode).toBe(202);
+		expect(response.json()).toEqual({
+			status: "accepted",
+		});
+		expect(createQueuedReviewRun).toHaveBeenCalledWith({
+			headSha: "deadbeefcafebabe",
+			installationId: 99,
+			owner: "Nitish27",
+			pullNumber: 7,
+			pullRequestAction: "opened",
+			repository: "PullSense",
+		});
+		expect(createCheckRun).toHaveBeenCalled();
 		expect(enqueueReviewJob).toHaveBeenCalledWith({
 			action: "opened",
 			headSha: "deadbeefcafebabe",

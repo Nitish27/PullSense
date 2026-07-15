@@ -11,11 +11,15 @@ describe("getApiEnv", () => {
 			GEMINI_MODEL: "gemini-3.1-flash-lite",
 			GITHUB_WEBHOOK_SECRET: "local-secret",
 			REDIS_URL: "redis://localhost:6379",
+			REVIEW_JOB_ATTEMPTS: "4",
+			REVIEW_JOB_BACKOFF_MS: "8000",
 		});
 
 		expect(env.DATABASE_URL).toBe(
 			"postgresql://postgres:postgres@localhost:5432/ai_code_review",
 		);
+		expect(env.REVIEW_JOB_ATTEMPTS).toBe(4);
+		expect(env.REVIEW_JOB_BACKOFF_MS).toBe(8000);
 	});
 
 	it("falls back to the local postgres default when DATABASE_URL is omitted", () => {
@@ -29,5 +33,7 @@ describe("getApiEnv", () => {
 		expect(env.DATABASE_URL).toBe(
 			"postgresql://postgres:postgres@localhost:5432/ai_code_review",
 		);
+		expect(env.REVIEW_JOB_ATTEMPTS).toBe(3);
+		expect(env.REVIEW_JOB_BACKOFF_MS).toBe(5000);
 	});
 });
