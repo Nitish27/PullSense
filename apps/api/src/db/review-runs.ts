@@ -32,21 +32,21 @@ export type ReviewRunRecord = {
 };
 
 type ReviewRunRow = {
-	check_run_id: number | null;
-	comment_id: number | null;
+	check_run_id: number | string | null;
+	comment_id: number | string | null;
 	comment_url: string | null;
 	completed_at: string | null;
 	conclusion: ReviewRunConclusion | null;
 	created_at: string;
 	error_message: string | null;
 	head_sha: string;
-	id: number;
-	inline_review_id: number | null;
+	id: number | string;
+	inline_review_id: number | string | null;
 	inline_review_url: string | null;
-	installation_id: number;
+	installation_id: number | string;
 	overall_severity: PullRequestReviewSeverity | null;
 	owner: string;
-	pull_number: number;
+	pull_number: number | string;
 	pull_request_action: GitHubPullRequestAction;
 	repository: string;
 	started_at: string | null;
@@ -437,21 +437,24 @@ export function createNoopReviewRunStore(): ReviewRunStore {
 
 function mapReviewRunRow(row: ReviewRunRow): ReviewRunRecord {
 	return {
-		checkRunId: row.check_run_id,
-		commentId: row.comment_id,
+		checkRunId: normalizeIntegerField(row.check_run_id),
+		commentId: normalizeIntegerField(row.comment_id),
 		commentUrl: row.comment_url,
 		completedAt: row.completed_at ? new Date(row.completed_at) : null,
 		conclusion: row.conclusion,
 		createdAt: new Date(row.created_at),
 		errorMessage: row.error_message,
 		headSha: row.head_sha,
-		id: row.id,
-		inlineReviewId: row.inline_review_id,
+		id: normalizeRequiredIntegerField(row.id, "id"),
+		inlineReviewId: normalizeIntegerField(row.inline_review_id),
 		inlineReviewUrl: row.inline_review_url,
-		installationId: row.installation_id,
+		installationId: normalizeRequiredIntegerField(
+			row.installation_id,
+			"installation_id",
+		),
 		overallSeverity: row.overall_severity,
 		owner: row.owner,
-		pullNumber: row.pull_number,
+		pullNumber: normalizeRequiredIntegerField(row.pull_number, "pull_number"),
 		pullRequestAction: row.pull_request_action,
 		repository: row.repository,
 		startedAt: row.started_at ? new Date(row.started_at) : null,
@@ -459,4 +462,29 @@ function mapReviewRunRow(row: ReviewRunRow): ReviewRunRecord {
 		summary: row.summary,
 		updatedAt: new Date(row.updated_at),
 	};
+}
+
+function normalizeIntegerField(value: number | string | null) {
+	if (value === null) {
+		return null;
+	}
+
+	return normalizeRequiredIntegerField(value, "review run numeric field");
+}
+
+function normalizeRequiredIntegerField(
+	value: number | string,
+	fieldName: string,
+) {
+	if (typeof value === "number") {
+		return value;
+	}
+
+	const parsed = Number.parseInt(value, 10);
+
+	if (Number.isNaN(parsed)) {
+		throw new Error(`Invalid integer value for ${fieldName}: ${value}`);
+	}
+
+	return parsed;
 }
