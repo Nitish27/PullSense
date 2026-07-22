@@ -74,14 +74,13 @@ function createReviewRunStore(
 	return {
 		attachCheckRunToReviewRun: vi.fn(async () => undefined),
 		createQueuedReviewRun,
-		getLatestReviewRunForPullRequest:
-			vi.fn<
-				(input: {
-					owner: string;
-					pullNumber: number;
-					repository: string;
-				}) => Promise<ReviewRunRecord | null>
-			>(async () => null),
+		getLatestReviewRunForPullRequest: vi.fn<
+			(input: {
+				owner: string;
+				pullNumber: number;
+				repository: string;
+			}) => Promise<ReviewRunRecord | null>
+		>(async () => null),
 		getReviewRunById: vi.fn(async () => null),
 		listReviewRunsForPullRequest: vi.fn(async () => []),
 		markReviewRunCompleted: vi.fn(async () => undefined),
@@ -248,7 +247,9 @@ describe("/webhook", () => {
 			reviewRunId: 320,
 			status: "duplicate",
 		});
-		expect(reviewRunStore.getLatestReviewRunForPullRequest).toHaveBeenCalledWith({
+		expect(
+			reviewRunStore.getLatestReviewRunForPullRequest,
+		).toHaveBeenCalledWith({
 			owner: "Nitish27",
 			pullNumber: 7,
 			repository: "PullSense",

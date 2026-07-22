@@ -1,9 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import {
-	createRedisConnection,
-	createReviewJobOptions,
-} from "./review-queue";
+import { createRedisConnection, createReviewJobOptions } from "./review-queue";
 
 describe("createRedisConnection", () => {
 	it("maps a redis URL into BullMQ connection options", () => {

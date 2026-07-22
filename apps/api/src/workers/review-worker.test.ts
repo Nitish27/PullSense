@@ -518,22 +518,24 @@ describe("processReviewJob", () => {
 		};
 
 		await expect(
-			processReviewJob(job, {
-				fetchPullRequestFilesForInstallation,
-				getReviewRunById,
-				markReviewRunCompleted,
-				markReviewRunFailed,
-				markReviewRunInProgress,
-				postPullRequestComment,
-				postPullRequestReview,
-				reviewPullRequest,
-				updateCheckRun,
-				logger,
-			},
-			{
-				attemptNumber: 3,
-				maxAttempts: 3,
-			},
+			processReviewJob(
+				job,
+				{
+					fetchPullRequestFilesForInstallation,
+					getReviewRunById,
+					markReviewRunCompleted,
+					markReviewRunFailed,
+					markReviewRunInProgress,
+					postPullRequestComment,
+					postPullRequestReview,
+					reviewPullRequest,
+					updateCheckRun,
+					logger,
+				},
+				{
+					attemptNumber: 3,
+					maxAttempts: 3,
+				},
 			),
 		).rejects.toThrow("Gemini request failed");
 

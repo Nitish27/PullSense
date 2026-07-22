@@ -132,15 +132,13 @@ export async function processReviewJob(
 	});
 
 	try {
-		const files = await runReviewStep(
-			"fetch_pull_request_files",
-			async () =>
-				dependencies.fetchPullRequestFilesForInstallation({
-					installationId: job.installationId,
-					owner: job.owner,
-					pullNumber: job.pullNumber,
-					repository: job.repository,
-				}),
+		const files = await runReviewStep("fetch_pull_request_files", async () =>
+			dependencies.fetchPullRequestFilesForInstallation({
+				installationId: job.installationId,
+				owner: job.owner,
+				pullNumber: job.pullNumber,
+				repository: job.repository,
+			}),
 		);
 		const review = await runReviewStep("generate_review", async () =>
 			dependencies.reviewPullRequest({
