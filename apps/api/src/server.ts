@@ -30,7 +30,10 @@ const app = createApp({
 					installationId: input.installationId,
 				})
 		: async () => null,
-	reviewQueue: createBullMqReviewQueue(env.REDIS_URL),
+	reviewQueue: createBullMqReviewQueue(env.REDIS_URL, {
+		attempts: env.REVIEW_JOB_ATTEMPTS,
+		backoffMs: env.REVIEW_JOB_BACKOFF_MS,
+	}),
 	reviewRunStore,
 	webhookSecret: env.GITHUB_WEBHOOK_SECRET,
 });

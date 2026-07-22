@@ -149,6 +149,59 @@ describe("createReviewRun", () => {
 			updatedAt: createdAt,
 		});
 	});
+
+	it("normalizes bigint-backed identifier fields returned as strings", async () => {
+		const createdAt = new Date("2026-07-22T18:45:15.113Z");
+		const client: ReviewRunDatabaseClient = {
+			query: vi.fn(async () => ({
+				rows: [
+					{
+						check_run_id: "89018430853",
+						comment_id: "4892704092",
+						comment_url:
+							"https://github.com/Nitish27/PullSense/pull/2#issuecomment-4892704092",
+						completed_at: createdAt.toISOString(),
+						conclusion: "success",
+						created_at: createdAt.toISOString(),
+						error_message: null,
+						head_sha: "aa0ce889215b30de6e5da3577040e2e3d5402fb9",
+						id: "5",
+						inline_review_id: "4757655628",
+						inline_review_url:
+							"https://github.com/Nitish27/PullSense/pull/2#pullrequestreview-4757655628",
+						installation_id: "141542735",
+						overall_severity: "low",
+						owner: "Nitish27",
+						pull_number: "2",
+						pull_request_action: "synchronize",
+						repository: "PullSense",
+						started_at: createdAt.toISOString(),
+						status: "completed",
+						summary: "Latest completed run",
+						updated_at: createdAt.toISOString(),
+					},
+				],
+			})),
+		};
+
+		const reviewRun = await createReviewRun(client, {
+			headSha: "aa0ce889215b30de6e5da3577040e2e3d5402fb9",
+			installationId: 141542735,
+			owner: "Nitish27",
+			pullNumber: 2,
+			pullRequestAction: "synchronize",
+			repository: "PullSense",
+		});
+
+		expect(reviewRun).toMatchObject({
+			checkRunId: 89018430853,
+			commentId: 4892704092,
+			id: 5,
+			inlineReviewId: 4757655628,
+			installationId: 141542735,
+			pullNumber: 2,
+		});
+	});
 });
 
 describe("getReviewRunById", () => {

@@ -402,6 +402,93 @@ describe("processReviewJob", () => {
 		expect(inlineReviewBodies[0]).toBe(inlineReviewBodies[1]);
 	});
 
+	it("keeps the review run in progress when an early attempt fails and BullMQ will retry", async () => {
+		const fetchPullRequestFilesForInstallation = vi.fn(async () => []);
+		const reviewPullRequest = vi.fn(async (): Promise<PullRequestReview> => {
+			throw new Error("Gemini request failed");
+		});
+		const postPullRequestComment = vi.fn();
+		const postPullRequestReview = vi.fn();
+		const logger = {
+			info: vi.fn(),
+			warn: vi.fn(),
+		};
+		const getReviewRunById = vi.fn(async () => ({
+			checkRunId: 9911,
+		}));
+		const markReviewRunInProgress = vi.fn(async () => undefined);
+		const markReviewRunCompleted = vi.fn(async () => undefined);
+		const markReviewRunFailed = vi.fn(async () => undefined);
+		const updateCheckRun = vi.fn(async () => undefined);
+		const job: PullReviewJob = {
+			action: "opened",
+			headSha: "abc123",
+			installationId: 42,
+			owner: "Nitish27",
+			pullNumber: 9,
+			reviewRunId: 504,
+			repository: "PullSense",
+		};
+
+		await expect(
+			processReviewJob(
+				job,
+				{
+					fetchPullRequestFilesForInstallation,
+					getReviewRunById,
+					markReviewRunCompleted,
+					markReviewRunFailed,
+					markReviewRunInProgress,
+					postPullRequestComment,
+					postPullRequestReview,
+					reviewPullRequest,
+					updateCheckRun,
+					logger,
+				},
+				{
+					attemptNumber: 1,
+					maxAttempts: 3,
+				},
+			),
+		).rejects.toThrow("Gemini request failed");
+
+		expect(markReviewRunCompleted).not.toHaveBeenCalled();
+		expect(markReviewRunFailed).not.toHaveBeenCalled();
+		expect(updateCheckRun).toHaveBeenNthCalledWith(1, {
+			checkRunId: 9911,
+			conclusion: undefined,
+			detailsUrl: undefined,
+			installationId: 42,
+			owner: "Nitish27",
+			repository: "PullSense",
+			status: "in_progress",
+			summary: "PullSense is reviewing the latest pull request changes.",
+			title: "Review in progress",
+		});
+		expect(updateCheckRun).toHaveBeenNthCalledWith(2, {
+			checkRunId: 9911,
+			conclusion: undefined,
+			detailsUrl: undefined,
+			installationId: 42,
+			owner: "Nitish27",
+			repository: "PullSense",
+			status: "in_progress",
+			summary:
+				"Attempt 1 of 3 failed during generate review: Gemini request failed. PullSense will retry automatically.",
+			title: "Retry scheduled",
+		});
+		expect(logger.warn).toHaveBeenCalledWith(
+			expect.objectContaining({
+				attemptNumber: 1,
+				maxAttempts: 3,
+				stage: "generate_review",
+			}),
+			"Review attempt failed and will retry",
+		);
+		expect(postPullRequestComment).not.toHaveBeenCalled();
+		expect(postPullRequestReview).not.toHaveBeenCalled();
+	});
+
 	it("marks the review run as failed and rethrows when review processing errors", async () => {
 		const fetchPullRequestFilesForInstallation = vi.fn(async () => []);
 		const reviewPullRequest = vi.fn(async (): Promise<PullRequestReview> => {
@@ -431,18 +518,25 @@ describe("processReviewJob", () => {
 		};
 
 		await expect(
-			processReviewJob(job, {
-				fetchPullRequestFilesForInstallation,
-				getReviewRunById,
-				markReviewRunCompleted,
-				markReviewRunFailed,
-				markReviewRunInProgress,
-				postPullRequestComment,
-				postPullRequestReview,
-				reviewPullRequest,
-				updateCheckRun,
-				logger,
-			}),
+			processReviewJob(
+				job,
+				{
+					fetchPullRequestFilesForInstallation,
+					getReviewRunById,
+					markReviewRunCompleted,
+					markReviewRunFailed,
+					markReviewRunInProgress,
+					postPullRequestComment,
+					postPullRequestReview,
+					reviewPullRequest,
+					updateCheckRun,
+					logger,
+				},
+				{
+					attemptNumber: 3,
+					maxAttempts: 3,
+				},
+			),
 		).rejects.toThrow("Gemini request failed");
 
 		expect(markReviewRunInProgress).toHaveBeenCalledWith({
@@ -451,7 +545,8 @@ describe("processReviewJob", () => {
 		expect(markReviewRunCompleted).not.toHaveBeenCalled();
 		expect(markReviewRunFailed).toHaveBeenCalledWith({
 			completedAt: expect.any(Date),
-			errorMessage: "Gemini request failed",
+			errorMessage:
+				"Review failed during generate review after 3 of 3 attempts: Gemini request failed",
 			reviewRunId: 504,
 		});
 		expect(updateCheckRun).toHaveBeenNthCalledWith(1, {
@@ -473,9 +568,18 @@ describe("processReviewJob", () => {
 			owner: "Nitish27",
 			repository: "PullSense",
 			status: "completed",
-			summary: "Gemini request failed",
+			summary:
+				"Review failed during generate review after 3 of 3 attempts: Gemini request failed",
 			title: "Review failed",
 		});
+		expect(logger.warn).toHaveBeenCalledWith(
+			expect.objectContaining({
+				attemptNumber: 3,
+				maxAttempts: 3,
+				stage: "generate_review",
+			}),
+			"Review worker exhausted all retry attempts",
+		);
 		expect(postPullRequestComment).not.toHaveBeenCalled();
 		expect(postPullRequestReview).not.toHaveBeenCalled();
 	});

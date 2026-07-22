@@ -18,6 +18,8 @@ const apiEnvSchema = z.object({
 		.enum(["development", "test", "production"])
 		.default("development"),
 	REDIS_URL: z.string().url().default("redis://localhost:6379"),
+	REVIEW_JOB_ATTEMPTS: z.coerce.number().int().positive().default(3),
+	REVIEW_JOB_BACKOFF_MS: z.coerce.number().int().nonnegative().default(5_000),
 });
 
 export function getApiEnv(
@@ -35,5 +37,7 @@ export function getApiEnv(
 		GITHUB_WEBHOOK_SECRET: env.GITHUB_WEBHOOK_SECRET,
 		NODE_ENV: env.NODE_ENV,
 		REDIS_URL: env.REDIS_URL,
+		REVIEW_JOB_ATTEMPTS: env.REVIEW_JOB_ATTEMPTS,
+		REVIEW_JOB_BACKOFF_MS: env.REVIEW_JOB_BACKOFF_MS,
 	});
 }
