@@ -53,6 +53,9 @@ describe("processReviewJob", () => {
 			htmlUrl: "https://github.com/Nitish27/PullSense/pull/9#issuecomment-101",
 			id: 101,
 		}));
+		const updatePullRequestDescription = vi.fn(async () => ({
+			htmlUrl: "https://github.com/Nitish27/PullSense/pull/9",
+		}));
 		const inlineReviewBodies: string[] = [];
 		const postPullRequestReview = vi.fn(
 			async (input: { body: string; comments: unknown[] }) => {
@@ -95,6 +98,7 @@ describe("processReviewJob", () => {
 			postPullRequestComment,
 			postPullRequestReview,
 			reviewPullRequest,
+			updatePullRequestDescription,
 			updateCheckRun,
 			logger,
 		});
@@ -158,6 +162,18 @@ describe("processReviewJob", () => {
 			pullNumber: 9,
 			repository: "PullSense",
 		});
+		expect(updatePullRequestDescription).toHaveBeenCalledWith({
+			body: expect.stringContaining("## PullSense summary"),
+			installationId: 42,
+			owner: "Nitish27",
+			pullNumber: 9,
+			repository: "PullSense",
+		});
+		expect(updatePullRequestDescription).toHaveBeenCalledWith(
+			expect.objectContaining({
+				body: expect.stringContaining("Summary comment"),
+			}),
+		);
 		expect(markReviewRunCompleted).toHaveBeenCalledWith({
 			commentId: 101,
 			commentUrl:
@@ -258,6 +274,9 @@ describe("processReviewJob", () => {
 			htmlUrl: "https://github.com/Nitish27/PullSense/pull/9#issuecomment-101",
 			id: 101,
 		}));
+		const updatePullRequestDescription = vi.fn(async () => ({
+			htmlUrl: "https://github.com/Nitish27/PullSense/pull/9",
+		}));
 		const postPullRequestReview = vi.fn();
 		const logger = {
 			info: vi.fn(),
@@ -289,12 +308,20 @@ describe("processReviewJob", () => {
 			postPullRequestComment,
 			postPullRequestReview,
 			reviewPullRequest,
+			updatePullRequestDescription,
 			updateCheckRun,
 			logger,
 		});
 
 		expect(postPullRequestComment).toHaveBeenCalledWith({
 			body: expect.stringContaining("<!-- pullsense:summary -->"),
+			installationId: 42,
+			owner: "Nitish27",
+			pullNumber: 9,
+			repository: "PullSense",
+		});
+		expect(updatePullRequestDescription).toHaveBeenCalledWith({
+			body: expect.stringContaining("## PullSense summary"),
 			installationId: 42,
 			owner: "Nitish27",
 			pullNumber: 9,
@@ -336,6 +363,9 @@ describe("processReviewJob", () => {
 		const postPullRequestComment = vi.fn(async () => ({
 			htmlUrl: "https://github.com/Nitish27/PullSense/pull/9#issuecomment-101",
 			id: 101,
+		}));
+		const updatePullRequestDescription = vi.fn(async () => ({
+			htmlUrl: "https://github.com/Nitish27/PullSense/pull/9",
 		}));
 		const inlineReviewBodies: string[] = [];
 		const postPullRequestReview = vi.fn(
@@ -379,6 +409,7 @@ describe("processReviewJob", () => {
 			postPullRequestComment,
 			postPullRequestReview,
 			reviewPullRequest,
+			updatePullRequestDescription,
 			updateCheckRun,
 			logger,
 		});
@@ -391,11 +422,13 @@ describe("processReviewJob", () => {
 			postPullRequestComment,
 			postPullRequestReview,
 			reviewPullRequest,
+			updatePullRequestDescription,
 			updateCheckRun,
 			logger,
 		});
 
 		expect(postPullRequestReview).toHaveBeenCalledTimes(2);
+		expect(updatePullRequestDescription).toHaveBeenCalledTimes(2);
 		expect(inlineReviewBodies[0]).toContain(
 			"<!-- pullsense:inline-review:key=",
 		);
@@ -408,6 +441,7 @@ describe("processReviewJob", () => {
 			throw new Error("Gemini request failed");
 		});
 		const postPullRequestComment = vi.fn();
+		const updatePullRequestDescription = vi.fn();
 		const postPullRequestReview = vi.fn();
 		const logger = {
 			info: vi.fn(),
@@ -442,6 +476,7 @@ describe("processReviewJob", () => {
 					postPullRequestComment,
 					postPullRequestReview,
 					reviewPullRequest,
+					updatePullRequestDescription,
 					updateCheckRun,
 					logger,
 				},
@@ -485,6 +520,7 @@ describe("processReviewJob", () => {
 			}),
 			"Review attempt failed and will retry",
 		);
+		expect(updatePullRequestDescription).not.toHaveBeenCalled();
 		expect(postPullRequestComment).not.toHaveBeenCalled();
 		expect(postPullRequestReview).not.toHaveBeenCalled();
 	});
@@ -495,6 +531,7 @@ describe("processReviewJob", () => {
 			throw new Error("Gemini request failed");
 		});
 		const postPullRequestComment = vi.fn();
+		const updatePullRequestDescription = vi.fn();
 		const postPullRequestReview = vi.fn();
 		const logger = {
 			info: vi.fn(),
@@ -529,6 +566,7 @@ describe("processReviewJob", () => {
 					postPullRequestComment,
 					postPullRequestReview,
 					reviewPullRequest,
+					updatePullRequestDescription,
 					updateCheckRun,
 					logger,
 				},
@@ -580,6 +618,7 @@ describe("processReviewJob", () => {
 			}),
 			"Review worker exhausted all retry attempts",
 		);
+		expect(updatePullRequestDescription).not.toHaveBeenCalled();
 		expect(postPullRequestComment).not.toHaveBeenCalled();
 		expect(postPullRequestReview).not.toHaveBeenCalled();
 	});

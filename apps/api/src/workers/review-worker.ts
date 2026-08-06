@@ -9,6 +9,7 @@ import {
 	postPullRequestReviewForInstallation,
 	readGitHubAppConfigFromEnv,
 	updateCheckRunForInstallation,
+	updatePullRequestDescriptionForInstallation,
 } from "@ai-code-review/github";
 import {
 	createGeminiReviewGenerator,
@@ -74,6 +75,15 @@ type ReviewWorkerDependencies = {
 		htmlUrl?: string;
 		id: number;
 	}>;
+	updatePullRequestDescription(input: {
+		body: string;
+		installationId: number;
+		owner: string;
+		pullNumber: number;
+		repository: string;
+	}): Promise<{
+		htmlUrl?: string;
+	}>;
 	reviewPullRequest(input: PullRequestReviewInput): Promise<PullRequestReview>;
 	logger: {
 		info(payload: unknown, message?: string): void;
@@ -96,6 +106,7 @@ type ReviewProcessingStage =
 	| "fetch_pull_request_files"
 	| "generate_review"
 	| "post_summary_comment"
+	| "update_pr_description"
 	| "post_inline_review";
 
 type ReviewJobAttemptContext = {
@@ -178,6 +189,18 @@ export async function processReviewJob(
 						}),
 					)
 				: null;
+		await runReviewStep("update_pr_description", async () =>
+			dependencies.updatePullRequestDescription({
+				body: formatPullRequestDescription(review, job.headSha, {
+					inlineReviewUrl: inlineReview?.htmlUrl ?? null,
+					summaryCommentUrl: comment.htmlUrl ?? null,
+				}),
+				installationId: job.installationId,
+				owner: job.owner,
+				pullNumber: job.pullNumber,
+				repository: job.repository,
+			}),
+		);
 		await syncCheckRunSafely(
 			reviewRun?.checkRunId ?? null,
 			{
@@ -353,6 +376,8 @@ export function createReviewWorker(options?: {
 							event: "COMMENT",
 							...input,
 						}),
+					updatePullRequestDescription: (input) =>
+						updatePullRequestDescriptionForInstallation(githubAppConfig, input),
 					reviewPullRequest: (input) =>
 						generatePullRequestReview(input, {
 							generateReview,
@@ -525,6 +550,49 @@ export function formatInlinePullRequestReviewBody(review: PullRequestReview) {
 		review.summary,
 		"",
 		"Only high-confidence findings with valid diff anchors are included below.",
+	].join("\n");
+}
+
+export function formatPullRequestDescription(
+	review: PullRequestReview,
+	headSha: string,
+	links: {
+		inlineReviewUrl: string | null;
+		summaryCommentUrl: string | null;
+	},
+) {
+	const findings =
+		review.issues.length === 0
+			? "- No actionable issues found in the reviewed diff."
+			: review.issues
+					.slice(0, 5)
+					.map((issue) => {
+						const location = issue.file ? ` (\`${issue.file}\`)` : "";
+
+						return `- [${issue.severity.toUpperCase()}] ${issue.title}${location}`;
+					})
+					.join("\n");
+	const linksSection = [
+		links.summaryCommentUrl
+			? `- Summary comment: ${links.summaryCommentUrl}`
+			: null,
+		links.inlineReviewUrl ? `- Inline review: ${links.inlineReviewUrl}` : null,
+	]
+		.filter((value): value is string => Boolean(value))
+		.join("\n");
+
+	return [
+		"## PullSense summary",
+		"",
+		`- Overall severity: ${review.overallSeverity.toUpperCase()}`,
+		`- Head SHA: \`${headSha}\``,
+		...(linksSection ? [linksSection] : []),
+		"",
+		"### Review summary",
+		review.summary,
+		"",
+		"### Findings snapshot",
+		findings,
 	].join("\n");
 }
 

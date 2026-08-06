@@ -8,6 +8,12 @@ export type GitHubAppConfig = {
 
 export type PullRequestFilesClient = {
 	pulls: {
+		get?(input: { owner: string; pull_number: number; repo: string }): Promise<{
+			data: {
+				body?: string | null;
+				html_url?: string;
+			};
+		}>;
 		listFiles(input: {
 			owner: string;
 			page: number;
@@ -113,6 +119,39 @@ export type PullRequestReviewClient = {
 				id: number;
 			};
 		}>;
+		update?(input: {
+			body: string;
+			owner: string;
+			pull_number: number;
+			repo: string;
+		}): Promise<{
+			data: {
+				body?: string | null;
+				html_url?: string;
+			};
+		}>;
+	};
+};
+
+export type PullRequestDescriptionClient = {
+	pulls: {
+		get(input: { owner: string; pull_number: number; repo: string }): Promise<{
+			data: {
+				body?: string | null;
+				html_url?: string;
+			};
+		}>;
+		update(input: {
+			body: string;
+			owner: string;
+			pull_number: number;
+			repo: string;
+		}): Promise<{
+			data: {
+				body?: string | null;
+				html_url?: string;
+			};
+		}>;
 	};
 };
 
@@ -160,6 +199,7 @@ export type PullRequestCheckRunClient = {
 
 export type GitHubInstallationClient = PullRequestFilesClient &
 	PullRequestCommentClient &
+	PullRequestDescriptionClient &
 	PullRequestReviewClient &
 	PullRequestCheckRunClient;
 
