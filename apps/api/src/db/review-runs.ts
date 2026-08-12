@@ -203,7 +203,7 @@ export async function createReviewRun(
 			with review_run_dedupe_lock as (
 				select pg_advisory_xact_lock(
 					hashtext($1),
-					hashtext($2 || ':' || $3::text || ':' || $4)
+					hashtext($2 || ':' || ($3::integer)::text || ':' || $4)
 				)
 			),
 			existing_review_run as (
@@ -214,7 +214,7 @@ export async function createReviewRun(
 				where
 					owner = $1
 					and repository = $2
-					and pull_number = $3
+					and pull_number = $3::integer
 					and head_sha = $4
 					and status <> 'failed'
 				order by created_at desc
@@ -233,15 +233,15 @@ export async function createReviewRun(
 				select
 					$1,
 					$2,
-					$3,
+					$3::integer,
 					$4,
-					$5,
+					$5::bigint,
 					$6,
 					$7
-				from review_run_dedupe_lock
-				where not exists (select 1 from existing_review_run)
-				returning
-					${reviewRunReturningColumns}
+					from review_run_dedupe_lock
+					where not exists (select 1 from existing_review_run)
+					returning
+						${reviewRunReturningColumns}
 			)
 			select
 				${reviewRunReturningColumns},

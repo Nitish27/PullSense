@@ -120,6 +120,8 @@ describe("createReviewRun", () => {
 		expect(query).toHaveBeenCalledTimes(1);
 		expect(statements[0]).toContain("pg_advisory_xact_lock");
 		expect(statements[0]).toContain("inserted_review_run");
+		expect(statements[0]).toContain("($3::integer)::text");
+		expect(statements[0]).toContain("pull_number = $3::integer");
 		expect(values[0]).toEqual([
 			"Nitish27",
 			"PullSense",
