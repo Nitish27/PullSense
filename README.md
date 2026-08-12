@@ -129,6 +129,7 @@ pnpm dev:web
 9. Confirm PullSense posts a `## PullSense review` summary comment in the PR conversation.
 10. If high-confidence findings were anchored successfully, confirm GitHub also shows a grouped inline review in the PR review / Files changed UI.
 11. If the GitHub App has `Checks: Read and write` repository permission, confirm the PR also shows a `PullSense review` check run moving through queued/in-progress/completed states.
+12. Redeliver the same `pull_request` payload from the GitHub App deliveries screen and confirm PullSense treats the same non-failed `head_sha` as a duplicate instead of queueing a second review run.
 
 Current visible output:
 
