@@ -130,6 +130,7 @@ pnpm dev:web
 10. If high-confidence findings were anchored successfully, confirm GitHub also shows a grouped inline review in the PR review / Files changed UI.
 11. If the GitHub App has `Checks: Read and write` repository permission, confirm the PR also shows a `PullSense review` check run moving through queued/in-progress/completed states.
 12. Redeliver the same `pull_request` payload from the GitHub App deliveries screen and confirm PullSense treats the same non-failed `head_sha` as a duplicate instead of queueing a second review run.
+13. To verify retry-after-failure behavior, trigger one failed review for a fresh `head_sha`, then redeliver that same `pull_request.synchronize` event after restoring the worker and confirm PullSense accepts it as a retry.
 
 Current visible output:
 
