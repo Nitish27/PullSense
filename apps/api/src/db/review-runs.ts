@@ -53,6 +53,7 @@ type ReviewRunRow = {
 	status: ReviewRunStatus;
 	summary: string | null;
 	updated_at: string;
+	was_created?: boolean;
 };
 
 export type ReviewRunDatabaseClient = {
@@ -110,7 +111,9 @@ export type ReviewRunStore = {
 	attachCheckRunToReviewRun(
 		input: AttachCheckRunToReviewRunInput,
 	): Promise<void>;
-	createQueuedReviewRun(input: CreateReviewRunInput): Promise<ReviewRunRecord>;
+	createQueuedReviewRun(
+		input: CreateReviewRunInput,
+	): Promise<CreateQueuedReviewRunResult>;
 	getLatestReviewRunForPullRequest(
 		input: ReviewRunPullRequestScope,
 	): Promise<ReviewRunRecord | null>;
@@ -121,6 +124,11 @@ export type ReviewRunStore = {
 	markReviewRunCompleted(input: MarkReviewRunCompletedInput): Promise<void>;
 	markReviewRunFailed(input: MarkReviewRunFailedInput): Promise<void>;
 	markReviewRunInProgress(input: MarkReviewRunInProgressInput): Promise<void>;
+};
+
+export type CreateQueuedReviewRunResult = {
+	reviewRun: ReviewRunRecord;
+	wasCreated: boolean;
 };
 
 const reviewRunReturningColumns = `
@@ -178,6 +186,12 @@ export async function ensureReviewRunsTable(client: ReviewRunDatabaseClient) {
 		create index if not exists review_runs_repo_pr_idx
 		on review_runs (owner, repository, pull_number, created_at desc)
 	`);
+
+	await client.query(`
+		create index if not exists review_runs_head_sha_status_idx
+		on review_runs (owner, repository, pull_number, head_sha, created_at desc)
+		where status <> 'failed'
+	`);
 }
 
 export async function createReviewRun(
@@ -186,18 +200,59 @@ export async function createReviewRun(
 ) {
 	const response = await client.query(
 		`
-			insert into review_runs (
-				owner,
-				repository,
-				pull_number,
-				head_sha,
-				installation_id,
-				pull_request_action,
-				status
+			with review_run_dedupe_lock as (
+				select pg_advisory_xact_lock(
+					hashtext($1),
+					hashtext($2 || ':' || $3::text || ':' || $4)
+				)
+			),
+			existing_review_run as (
+				select
+					${reviewRunReturningColumns},
+					false as was_created
+				from review_runs, review_run_dedupe_lock
+				where
+					owner = $1
+					and repository = $2
+					and pull_number = $3
+					and head_sha = $4
+					and status <> 'failed'
+				order by created_at desc
+				limit 1
+			),
+			inserted_review_run as (
+				insert into review_runs (
+					owner,
+					repository,
+					pull_number,
+					head_sha,
+					installation_id,
+					pull_request_action,
+					status
+				)
+				select
+					$1,
+					$2,
+					$3,
+					$4,
+					$5,
+					$6,
+					$7
+				from review_run_dedupe_lock
+				where not exists (select 1 from existing_review_run)
+				returning
+					${reviewRunReturningColumns}
 			)
-			values ($1, $2, $3, $4, $5, $6, $7)
-			returning
-				${reviewRunReturningColumns}
+			select
+				${reviewRunReturningColumns},
+				true as was_created
+			from inserted_review_run
+			union all
+			select
+				${reviewRunReturningColumns},
+				was_created
+			from existing_review_run
+			limit 1
 		`,
 		[
 			input.owner,
@@ -210,7 +265,16 @@ export async function createReviewRun(
 		],
 	);
 
-	return mapReviewRunRow(response.rows[0] as ReviewRunRow);
+	const row = response.rows[0] as ReviewRunRow | undefined;
+
+	if (!row) {
+		throw new Error("Failed to create or reuse review run");
+	}
+
+	return {
+		reviewRun: mapReviewRunRow(row),
+		wasCreated: row.was_created !== false,
+	};
 }
 
 export async function listReviewRunsForPullRequest(
@@ -391,27 +455,30 @@ export function createNoopReviewRunStore(): ReviewRunStore {
 			const now = new Date();
 
 			return {
-				checkRunId: null,
-				commentId: null,
-				commentUrl: null,
-				completedAt: null,
-				conclusion: null,
-				createdAt: now,
-				errorMessage: null,
-				headSha: input.headSha,
-				id: 0,
-				inlineReviewId: null,
-				inlineReviewUrl: null,
-				installationId: input.installationId,
-				overallSeverity: null,
-				owner: input.owner,
-				pullNumber: input.pullNumber,
-				pullRequestAction: input.pullRequestAction,
-				repository: input.repository,
-				startedAt: null,
-				status: "queued",
-				summary: null,
-				updatedAt: now,
+				reviewRun: {
+					checkRunId: null,
+					commentId: null,
+					commentUrl: null,
+					completedAt: null,
+					conclusion: null,
+					createdAt: now,
+					errorMessage: null,
+					headSha: input.headSha,
+					id: 0,
+					inlineReviewId: null,
+					inlineReviewUrl: null,
+					installationId: input.installationId,
+					overallSeverity: null,
+					owner: input.owner,
+					pullNumber: input.pullNumber,
+					pullRequestAction: input.pullRequestAction,
+					repository: input.repository,
+					startedAt: null,
+					status: "queued",
+					summary: null,
+					updatedAt: now,
+				},
+				wasCreated: true,
 			};
 		},
 		async getLatestReviewRunForPullRequest() {

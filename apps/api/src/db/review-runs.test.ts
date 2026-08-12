@@ -28,7 +28,7 @@ describe("ensureReviewRunsTable", () => {
 
 		await ensureReviewRunsTable(client);
 
-		expect(query).toHaveBeenCalledTimes(2);
+		expect(query).toHaveBeenCalledTimes(3);
 		expect(statements[0]).toContain("create table if not exists review_runs");
 		expect(statements[0]).toContain("status text not null");
 		expect(statements[0]).toContain("conclusion text");
@@ -37,6 +37,9 @@ describe("ensureReviewRunsTable", () => {
 		expect(statements[0]).toContain("inline_review_id bigint");
 		expect(statements[0]).toContain("error_message text");
 		expect(statements[0]).toContain("created_at timestamptz not null");
+		expect(statements[2]).toContain(
+			"create index if not exists review_runs_head_sha_status_idx",
+		);
 	});
 });
 
@@ -105,7 +108,7 @@ describe("createReviewRun", () => {
 			query,
 		};
 
-		const reviewRun = await createReviewRun(client, {
+		const result = await createReviewRun(client, {
 			headSha: "abc123",
 			installationId: 42,
 			owner: "Nitish27",
@@ -115,7 +118,8 @@ describe("createReviewRun", () => {
 		});
 
 		expect(query).toHaveBeenCalledTimes(1);
-		expect(statements[0]).toContain("insert into review_runs");
+		expect(statements[0]).toContain("pg_advisory_xact_lock");
+		expect(statements[0]).toContain("inserted_review_run");
 		expect(values[0]).toEqual([
 			"Nitish27",
 			"PullSense",
@@ -125,28 +129,31 @@ describe("createReviewRun", () => {
 			"opened",
 			"queued",
 		]);
-		expect(reviewRun).toEqual({
-			checkRunId: null,
-			commentId: null,
-			commentUrl: null,
-			completedAt: null,
-			conclusion: null,
-			createdAt,
-			errorMessage: null,
-			headSha: "abc123",
-			id: 7,
-			inlineReviewId: null,
-			inlineReviewUrl: null,
-			installationId: 42,
-			overallSeverity: null,
-			owner: "Nitish27",
-			pullNumber: 9,
-			pullRequestAction: "opened",
-			repository: "PullSense",
-			startedAt: null,
-			status: "queued",
-			summary: null,
-			updatedAt: createdAt,
+		expect(result).toEqual({
+			reviewRun: {
+				checkRunId: null,
+				commentId: null,
+				commentUrl: null,
+				completedAt: null,
+				conclusion: null,
+				createdAt,
+				errorMessage: null,
+				headSha: "abc123",
+				id: 7,
+				inlineReviewId: null,
+				inlineReviewUrl: null,
+				installationId: 42,
+				overallSeverity: null,
+				owner: "Nitish27",
+				pullNumber: 9,
+				pullRequestAction: "opened",
+				repository: "PullSense",
+				startedAt: null,
+				status: "queued",
+				summary: null,
+				updatedAt: createdAt,
+			},
+			wasCreated: true,
 		});
 	});
 
@@ -184,7 +191,7 @@ describe("createReviewRun", () => {
 			})),
 		};
 
-		const reviewRun = await createReviewRun(client, {
+		const result = await createReviewRun(client, {
 			headSha: "aa0ce889215b30de6e5da3577040e2e3d5402fb9",
 			installationId: 141542735,
 			owner: "Nitish27",
@@ -193,13 +200,68 @@ describe("createReviewRun", () => {
 			repository: "PullSense",
 		});
 
-		expect(reviewRun).toMatchObject({
-			checkRunId: 89018430853,
-			commentId: 4892704092,
-			id: 5,
-			inlineReviewId: 4757655628,
-			installationId: 141542735,
-			pullNumber: 2,
+		expect(result).toMatchObject({
+			reviewRun: {
+				checkRunId: 89018430853,
+				commentId: 4892704092,
+				id: 5,
+				inlineReviewId: 4757655628,
+				installationId: 141542735,
+				pullNumber: 2,
+			},
+			wasCreated: true,
+		});
+	});
+
+	it("reuses an existing non-failed run for the same head sha instead of creating a duplicate row", async () => {
+		const createdAt = new Date("2026-07-22T18:45:15.113Z");
+		const client: ReviewRunDatabaseClient = {
+			query: vi.fn(async () => ({
+				rows: [
+					{
+						check_run_id: null,
+						comment_id: null,
+						comment_url: null,
+						completed_at: null,
+						conclusion: null,
+						created_at: createdAt.toISOString(),
+						error_message: null,
+						head_sha: "abc123",
+						id: 12,
+						inline_review_id: null,
+						inline_review_url: null,
+						installation_id: 42,
+						overall_severity: null,
+						owner: "Nitish27",
+						pull_number: 9,
+						pull_request_action: "opened",
+						repository: "PullSense",
+						started_at: null,
+						status: "queued",
+						summary: null,
+						updated_at: createdAt.toISOString(),
+						was_created: false,
+					},
+				],
+			})),
+		};
+
+		const result = await createReviewRun(client, {
+			headSha: "abc123",
+			installationId: 42,
+			owner: "Nitish27",
+			pullNumber: 9,
+			pullRequestAction: "opened",
+			repository: "PullSense",
+		});
+
+		expect(result).toMatchObject({
+			reviewRun: {
+				headSha: "abc123",
+				id: 12,
+				status: "queued",
+			},
+			wasCreated: false,
 		});
 	});
 });
@@ -462,8 +524,11 @@ describe("review run lifecycle updates", () => {
 				repository: "PullSense",
 			}),
 		).resolves.toMatchObject({
-			id: 0,
-			status: "queued",
+			reviewRun: {
+				id: 0,
+				status: "queued",
+			},
+			wasCreated: true,
 		});
 		await expect(
 			store.markReviewRunInProgress({ reviewRunId: 0 }),

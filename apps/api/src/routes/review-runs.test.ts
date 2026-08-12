@@ -55,7 +55,10 @@ describe("GET /repos/:owner/:repository/pulls/:pullNumber/review-runs", () => {
 		const app = createApp({
 			reviewRunStore: {
 				attachCheckRunToReviewRun: vi.fn(async () => undefined),
-				createQueuedReviewRun: vi.fn(async () => createReviewRun(10)),
+				createQueuedReviewRun: vi.fn(async () => ({
+					reviewRun: createReviewRun(10),
+					wasCreated: true,
+				})),
 				getLatestReviewRunForPullRequest,
 				getReviewRunById: vi.fn(async () => null),
 				listReviewRunsForPullRequest,
@@ -167,7 +170,10 @@ describe("GET /repos/:owner/:repository/pulls/:pullNumber/review-runs", () => {
 		const app = createApp({
 			reviewRunStore: {
 				attachCheckRunToReviewRun: vi.fn(async () => undefined),
-				createQueuedReviewRun: vi.fn(async () => createReviewRun(10)),
+				createQueuedReviewRun: vi.fn(async () => ({
+					reviewRun: createReviewRun(10),
+					wasCreated: true,
+				})),
 				getLatestReviewRunForPullRequest,
 				getReviewRunById: vi.fn(async () => null),
 				listReviewRunsForPullRequest,

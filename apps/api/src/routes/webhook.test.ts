@@ -67,9 +67,10 @@ function createReviewRunRecord(
 }
 
 function createReviewRunStore(
-	createQueuedReviewRun: () => Promise<
-		ReturnType<typeof createQueuedReviewRunRecord>
-	>,
+	createQueuedReviewRun: () => Promise<{
+		reviewRun: ReturnType<typeof createQueuedReviewRunRecord>;
+		wasCreated: boolean;
+	}>,
 ) {
 	return {
 		attachCheckRunToReviewRun: vi.fn(async () => undefined),
@@ -94,9 +95,10 @@ describe("/webhook", () => {
 		const enqueueReviewJob = vi.fn<(job: PullReviewJob) => Promise<void>>(
 			async () => undefined,
 		);
-		const createQueuedReviewRun = vi.fn(async () =>
-			createQueuedReviewRunRecord(321),
-		);
+		const createQueuedReviewRun = vi.fn(async () => ({
+			reviewRun: createQueuedReviewRunRecord(321),
+			wasCreated: true,
+		}));
 		const createCheckRun = vi.fn(async () => ({
 			id: 8801,
 		}));
@@ -162,9 +164,10 @@ describe("/webhook", () => {
 		const enqueueReviewJob = vi.fn<(job: PullReviewJob) => Promise<void>>(
 			async () => undefined,
 		);
-		const createQueuedReviewRun = vi.fn(async () =>
-			createQueuedReviewRunRecord(321),
-		);
+		const createQueuedReviewRun = vi.fn(async () => ({
+			reviewRun: createQueuedReviewRunRecord(321),
+			wasCreated: true,
+		}));
 		const createCheckRun = vi.fn(async () => {
 			throw new Error("Checks permission missing");
 		});
@@ -208,9 +211,10 @@ describe("/webhook", () => {
 		const enqueueReviewJob = vi.fn<(job: PullReviewJob) => Promise<void>>(
 			async () => undefined,
 		);
-		const createQueuedReviewRun = vi.fn(async () =>
-			createQueuedReviewRunRecord(321),
-		);
+		const createQueuedReviewRun = vi.fn(async () => ({
+			reviewRun: createQueuedReviewRunRecord(321),
+			wasCreated: true,
+		}));
 		const createCheckRun = vi.fn(async () => ({
 			id: 8801,
 		}));
@@ -264,9 +268,10 @@ describe("/webhook", () => {
 		const enqueueReviewJob = vi.fn<(job: PullReviewJob) => Promise<void>>(
 			async () => undefined,
 		);
-		const createQueuedReviewRun = vi.fn(async () =>
-			createQueuedReviewRunRecord(321),
-		);
+		const createQueuedReviewRun = vi.fn(async () => ({
+			reviewRun: createQueuedReviewRunRecord(321),
+			wasCreated: true,
+		}));
 		const createCheckRun = vi.fn(async () => ({
 			id: 8801,
 		}));
@@ -324,13 +329,55 @@ describe("/webhook", () => {
 		});
 	});
 
+	it("treats a reused DB review run as a duplicate and skips queueing", async () => {
+		const enqueueReviewJob = vi.fn<(job: PullReviewJob) => Promise<void>>(
+			async () => undefined,
+		);
+		const createCheckRun = vi.fn(async () => ({
+			id: 8801,
+		}));
+		const createQueuedReviewRun = vi.fn(async () => ({
+			reviewRun: createQueuedReviewRunRecord(320),
+			wasCreated: false,
+		}));
+		const body = JSON.stringify(pullRequestPayload);
+		const app = await createApp({
+			createCheckRun,
+			reviewQueue: {
+				enqueueReviewJob,
+			},
+			reviewRunStore: createReviewRunStore(createQueuedReviewRun),
+			webhookSecret,
+		} as never);
+
+		const response = await app.inject({
+			method: "POST",
+			url: "/webhook",
+			headers: {
+				"x-github-event": "pull_request",
+				"x-hub-signature-256": createGitHubSignature(webhookSecret, body),
+				"content-type": "application/json",
+			},
+			payload: body,
+		});
+
+		expect(response.statusCode).toBe(202);
+		expect(response.json()).toEqual({
+			reviewRunId: 320,
+			status: "duplicate",
+		});
+		expect(createCheckRun).not.toHaveBeenCalled();
+		expect(enqueueReviewJob).not.toHaveBeenCalled();
+	});
+
 	it("rejects a webhook with an invalid signature", async () => {
 		const enqueueReviewJob = vi.fn<(job: PullReviewJob) => Promise<void>>(
 			async () => undefined,
 		);
-		const createQueuedReviewRun = vi.fn(async () =>
-			createQueuedReviewRunRecord(321),
-		);
+		const createQueuedReviewRun = vi.fn(async () => ({
+			reviewRun: createQueuedReviewRunRecord(321),
+			wasCreated: true,
+		}));
 		const app = await createApp({
 			reviewQueue: {
 				enqueueReviewJob,
@@ -362,9 +409,10 @@ describe("/webhook", () => {
 		const enqueueReviewJob = vi.fn<(job: PullReviewJob) => Promise<void>>(
 			async () => undefined,
 		);
-		const createQueuedReviewRun = vi.fn(async () =>
-			createQueuedReviewRunRecord(321),
-		);
+		const createQueuedReviewRun = vi.fn(async () => ({
+			reviewRun: createQueuedReviewRunRecord(321),
+			wasCreated: true,
+		}));
 		const body = JSON.stringify(pullRequestPayload);
 		const app = await createApp({
 			reviewQueue: {

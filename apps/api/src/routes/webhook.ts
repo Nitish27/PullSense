@@ -113,14 +113,37 @@ export function registerWebhookRoutes(
 				});
 			}
 
-			const reviewRun = await options.reviewRunStore.createQueuedReviewRun({
-				headSha: reviewJob.headSha,
-				installationId: reviewJob.installationId,
-				owner: reviewJob.owner,
-				pullNumber: reviewJob.pullNumber,
-				pullRequestAction: reviewJob.action,
-				repository: reviewJob.repository,
-			});
+			const { reviewRun, wasCreated } =
+				await options.reviewRunStore.createQueuedReviewRun({
+					headSha: reviewJob.headSha,
+					installationId: reviewJob.installationId,
+					owner: reviewJob.owner,
+					pullNumber: reviewJob.pullNumber,
+					pullRequestAction: reviewJob.action,
+					repository: reviewJob.repository,
+				});
+
+			if (!wasCreated) {
+				app.log.info(
+					{
+						action: reviewJob.action,
+						eventName,
+						headSha: reviewJob.headSha,
+						installationId: reviewJob.installationId,
+						owner: reviewJob.owner,
+						pullNumber: reviewJob.pullNumber,
+						repository: reviewJob.repository,
+						reviewRunId: reviewRun.id,
+						status: reviewRun.status,
+					},
+					"Skipped duplicate GitHub webhook after DB-level head sha dedupe",
+				);
+
+				return reply.code(202).send({
+					reviewRunId: reviewRun.id,
+					status: "duplicate",
+				});
+			}
 			try {
 				const checkRun = await options.createCheckRun({
 					headSha: reviewJob.headSha,
