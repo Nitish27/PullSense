@@ -1,4 +1,5 @@
 import type { ReviewRunsPageData } from "./review-runs";
+import styles from "./review-runs-dashboard.module.css";
 import { ReviewRunsReadyState } from "./review-runs-ready-state";
 
 type ReviewRunsDashboardProps = {
@@ -10,74 +11,114 @@ type ReviewRunsDashboardProps = {
 
 export function ReviewRunsDashboard(props: ReviewRunsDashboardProps) {
 	return (
-		<main
-			style={{
-				background:
-					"linear-gradient(180deg, rgb(250 247 240) 0%, rgb(244 240 232) 100%)",
-				color: "rgb(38 31 24)",
-				fontFamily: "Georgia, serif",
-				minHeight: "100vh",
-				padding: "48px 24px 72px",
-			}}
-		>
-			<div style={{ margin: "0 auto", maxWidth: "1040px" }}>
-				<p
-					style={{
-						letterSpacing: "0.08em",
-						marginBottom: "12px",
-						textTransform: "uppercase",
-					}}
-				>
-					{props.phase}
-				</p>
-				<h1 style={{ fontSize: "3rem", margin: "0 0 16px" }}>
-					{props.appName}
-				</h1>
-				<p
-					style={{
-						fontSize: "1.1rem",
-						lineHeight: 1.6,
-						marginBottom: "24px",
-						maxWidth: "760px",
-					}}
-				>
-					Review status and run history for PullSense pull requests. Search by
-					owner, repository, and pull request number to inspect the latest AI
-					review outcome, GitHub links, and recent run attempts.
-				</p>
-				<form
-					method="get"
-					style={{
-						background: "rgba(255, 255, 255, 0.72)",
-						border: "1px solid rgba(38, 31, 24, 0.1)",
-						borderRadius: "20px",
-						display: "grid",
-						gap: "16px",
-						gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-						marginBottom: "28px",
-						padding: "20px",
-					}}
-				>
-					{renderInput("Owner", "owner", props.pageData.form.owner)}
-					{renderInput(
-						"Repository",
-						"repository",
-						props.pageData.form.repository,
-					)}
-					{renderInput(
-						"Pull Number",
-						"pullNumber",
-						props.pageData.form.pullNumber,
-					)}
-					<div style={{ alignSelf: "end", display: "flex", gap: "12px" }}>
-						<button style={primaryButtonStyle} type="submit">
-							Load review runs
-						</button>
+		<main className={styles.page}>
+			<div className={styles.shell}>
+				<section className={styles.masthead}>
+					<div className={styles.heroPanel}>
+						<div className={styles.heroContent}>
+							<p className={styles.eyebrow}>{props.phase}</p>
+							<h1 className={styles.title}>{props.appName}</h1>
+							<p className={styles.description}>
+								PullSense is the review command center for AI code review runs.
+								Search by repository and pull request to inspect the latest
+								verdict, linked GitHub artifacts, operational health, and recent
+								attempt history without digging through raw webhook logs.
+							</p>
+							<div className={styles.heroMetrics}>
+								<div className={styles.metricTile}>
+									<p className={styles.metricLabel}>Primary surface</p>
+									<p className={styles.metricValue}>Review command center</p>
+								</div>
+								<div className={styles.metricTile}>
+									<p className={styles.metricLabel}>Artifacts tracked</p>
+									<p className={styles.metricValue}>Summary, inline, checks</p>
+								</div>
+								<div className={styles.metricTile}>
+									<p className={styles.metricLabel}>Current mode</p>
+									<p className={styles.metricValue}>Operational clarity</p>
+								</div>
+							</div>
+						</div>
+					</div>
+					<aside className={styles.statusRail}>
+						<div className={styles.statusRailHeader}>
+							<h2 className={styles.statusRailTitle}>Phase A objective</h2>
+							<p className={styles.statusRailText}>
+								Turn the existing review lookup page into a premium, high-trust
+								dashboard that feels product-ready even before repository and
+								settings surfaces arrive.
+							</p>
+						</div>
+						<div className={styles.statusGrid}>
+							<div className={styles.statusCard}>
+								<p className={styles.statusCardTitle}>
+									What this page should do
+								</p>
+								<p className={styles.statusCardValue}>
+									Show the latest PR state in under ten seconds.
+								</p>
+							</div>
+							<div className={styles.statusCard}>
+								<p className={styles.statusCardTitle}>
+									What it should feel like
+								</p>
+								<p
+									className={`${styles.statusCardValue} ${styles.statusCardValueStrong}`}
+								>
+									Calm, premium, and trustworthy.
+								</p>
+							</div>
+							<div className={styles.statusCard}>
+								<p className={styles.statusCardTitle}>Backed by</p>
+								<p className={styles.statusCardValue}>
+									Stored review runs, GitHub links, and operational diagnostics.
+								</p>
+							</div>
+						</div>
+					</aside>
+				</section>
+				<form className={styles.searchPanel} method="get">
+					<div className={styles.searchPanelHeader}>
+						<div>
+							<h2 className={styles.searchPanelTitle}>
+								Inspect a pull request
+							</h2>
+							<p className={styles.searchPanelText}>
+								Load the persisted PullSense view for a specific PR to see the
+								latest review outcome, artifact links, severity, and run
+								history.
+							</p>
+						</div>
+						<div className={styles.apiMeta}>
+							API base URL: <code>{props.apiBaseUrl}</code>
+						</div>
+					</div>
+					<div className={styles.searchGrid}>
+						{renderInput(
+							"Owner",
+							"GitHub account or organization",
+							"owner",
+							props.pageData.form.owner,
+						)}
+						{renderInput(
+							"Repository",
+							"Repository name exactly as installed",
+							"repository",
+							props.pageData.form.repository,
+						)}
+						{renderInput(
+							"Pull number",
+							"The numeric PR identifier",
+							"pullNumber",
+							props.pageData.form.pullNumber,
+						)}
+						<div className={styles.searchAction}>
+							<button className={styles.button} type="submit">
+								Load review runs
+							</button>
+						</div>
 					</div>
 				</form>
-				<p style={{ color: "rgb(100 88 72)", marginBottom: "24px" }}>
-					API base URL: <code>{props.apiBaseUrl}</code>
-				</p>
 				{renderPageState(props.pageData)}
 			</div>
 		</main>
@@ -87,95 +128,70 @@ export function ReviewRunsDashboard(props: ReviewRunsDashboardProps) {
 function renderPageState(pageData: ReviewRunsPageData) {
 	if (pageData.state === "idle") {
 		return (
-			<StateCard title="No pull request selected">
-				Enter an owner, repository, and pull request number to load the latest
-				review status and recent history.
+			<StateCard
+				body="Enter an owner, repository, and pull request number to load the latest persisted PullSense state for a PR."
+				title="No pull request selected"
+			>
+				<ul className={styles.ctaList}>
+					<li>Use a real PR that has already triggered the GitHub App.</li>
+					<li>
+						Start with the latest active PR when testing new review behavior.
+					</li>
+					<li>
+						Once loaded, this page becomes the fastest way to inspect status,
+						artifacts, and failures.
+					</li>
+				</ul>
 			</StateCard>
 		);
 	}
 
 	if (pageData.state === "error") {
 		return (
-			<StateCard title="Review history unavailable">{pageData.error}</StateCard>
+			<StateCard body={pageData.error} title="Review history unavailable">
+				<ul className={styles.ctaList}>
+					<li>Check the API process and database connection first.</li>
+					<li>Confirm the PR number is a positive integer.</li>
+					<li>
+						Verify that the repository already has persisted `review_runs` data.
+					</li>
+				</ul>
+			</StateCard>
 		);
 	}
 
-	return (
-		<ReviewRunsReadyState
-			data={pageData.data}
-			linkStyle={linkStyle}
-			panelStyle={panelStyle}
-			secondaryPillStyle={secondaryPillStyle}
-			tableCellStyle={tableCellStyle}
-			tableHeaderStyle={tableHeaderStyle}
-		/>
-	);
+	return <ReviewRunsReadyState data={pageData.data} />;
 }
 
-function renderInput(label: string, name: string, defaultValue: string) {
+function renderInput(
+	label: string,
+	hint: string,
+	name: string,
+	defaultValue: string,
+) {
 	return (
-		<label style={{ display: "grid", gap: "8px" }}>
-			<span style={{ fontSize: "0.95rem" }}>{label}</span>
-			<input defaultValue={defaultValue} name={name} style={inputStyle} />
+		<label className={styles.field}>
+			<span className={styles.fieldLabel}>{label}</span>
+			<span className={styles.fieldHint}>{hint}</span>
+			<input className={styles.input} defaultValue={defaultValue} name={name} />
 		</label>
 	);
 }
 
-function StateCard(props: { children: string; title: string }) {
+function StateCard(props: {
+	body: string;
+	children: React.ReactNode;
+	title: string;
+}) {
 	return (
-		<section style={panelStyle}>
-			<h2 style={{ fontSize: "1.5rem", margin: "0 0 12px" }}>{props.title}</h2>
-			<p style={{ lineHeight: 1.6, margin: 0 }}>{props.children}</p>
+		<section className={styles.statePanel}>
+			<div className={styles.stateBody}>
+				<div>
+					<h2 className={styles.stateTitle}>{props.title}</h2>
+					<p className={styles.stateText}>{props.body}</p>
+				</div>
+				{props.children}
+			</div>
 		</section>
 	);
 }
-
-const panelStyle = {
-	background: "rgba(255, 255, 255, 0.82)",
-	border: "1px solid rgba(38, 31, 24, 0.1)",
-	borderRadius: "24px",
-	padding: "24px",
-} as const;
-
-const inputStyle = {
-	border: "1px solid rgba(38, 31, 24, 0.16)",
-	borderRadius: "12px",
-	fontFamily: "inherit",
-	fontSize: "1rem",
-	padding: "12px 14px",
-} as const;
-
-const primaryButtonStyle = {
-	background: "rgb(38 31 24)",
-	border: "none",
-	borderRadius: "999px",
-	color: "rgb(249 246 240)",
-	cursor: "pointer",
-	fontFamily: "inherit",
-	fontSize: "1rem",
-	padding: "12px 18px",
-} as const;
-
-const linkStyle = {
-	color: "rgb(87 58 28)",
-	textDecoration: "underline",
-} as const;
-
-const secondaryPillStyle = {
-	background: "rgb(240 231 214)",
-	borderRadius: "999px",
-	display: "inline-block",
-	padding: "6px 10px",
-} as const;
-
-const tableHeaderStyle = {
-	borderBottom: "1px solid rgba(38, 31, 24, 0.12)",
-	padding: "12px",
-	textAlign: "left",
-} as const;
-
-const tableCellStyle = {
-	borderBottom: "1px solid rgba(38, 31, 24, 0.08)",
-	padding: "12px",
-	verticalAlign: "top",
-} as const;

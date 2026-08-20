@@ -1,27 +1,16 @@
 import type { ReviewRunsResponse } from "./review-runs";
+import styles from "./review-runs-dashboard.module.css";
+import {
+	type BadgeTone,
+	formatDateTime,
+	formatPullRequestAction,
+	getConclusionTone,
+	getSeverityTone,
+	getStatusTone,
+} from "./review-runs-presenters";
 
 type ReviewRunsHistoryTableProps = {
-	linkStyle: {
-		color: string;
-		textDecoration: "underline";
-	};
 	runs: ReviewRunsResponse["runs"];
-	secondaryPillStyle: {
-		background: string;
-		borderRadius: string;
-		display: "inline-block";
-		padding: string;
-	};
-	tableCellStyle: {
-		borderBottom: string;
-		padding: string;
-		verticalAlign: "top";
-	};
-	tableHeaderStyle: {
-		borderBottom: string;
-		padding: string;
-		textAlign: "left";
-	};
 };
 
 const tableHeadings = [
@@ -35,70 +24,95 @@ const tableHeadings = [
 ] as const;
 
 export function ReviewRunsHistoryTable(props: ReviewRunsHistoryTableProps) {
+	if (props.runs.length === 0) {
+		return (
+			<div className={styles.emptyHistory}>
+				<p className={styles.panelText}>
+					No runs have been persisted for this pull request yet. Once PullSense
+					processes an `opened` or `synchronize` event, the history will appear
+					here.
+				</p>
+			</div>
+		);
+	}
+
 	return (
-		<div style={{ overflowX: "auto" }}>
-			<table
-				style={{
-					borderCollapse: "collapse",
-					minWidth: "880px",
-					width: "100%",
-				}}
-			>
+		<div className={styles.tableWrap}>
+			<table className={styles.table}>
 				<thead>
 					<tr>
 						{tableHeadings.map((heading) => (
-							<th key={heading} style={props.tableHeaderStyle}>
-								{heading}
-							</th>
+							<th key={heading}>{heading}</th>
 						))}
 					</tr>
 				</thead>
 				<tbody>
 					{props.runs.map((run) => (
 						<tr key={run.id}>
-							<td style={props.tableCellStyle}>
-								#{run.id}
-								<br />
-								<code>{run.headSha.slice(0, 12)}</code>
+							<td>
+								<div className={styles.runLabel}>
+									<span className={styles.runId}>#{run.id}</span>
+									<code className={styles.shaPill}>
+										{run.headSha.slice(0, 12)}
+									</code>
+								</div>
 							</td>
-							<td style={props.tableCellStyle}>{run.status}</td>
-							<td style={props.tableCellStyle}>
-								{run.conclusion ?? "pending"}
+							<td>
+								<span className={getBadgeClassName(getStatusTone(run.status))}>
+									{run.status}
+								</span>
 							</td>
-							<td style={props.tableCellStyle}>
-								{run.overallSeverity ?? "n/a"}
+							<td>
+								<span
+									className={getBadgeClassName(
+										getConclusionTone(run.conclusion),
+									)}
+								>
+									{run.conclusion ?? "pending"}
+								</span>
 							</td>
-							<td style={props.tableCellStyle}>{run.pullRequestAction}</td>
-							<td style={props.tableCellStyle}>
-								{formatDateTime(run.createdAt)}
+							<td>
+								<span
+									className={getBadgeClassName(
+										getSeverityTone(run.overallSeverity),
+									)}
+								>
+									{run.overallSeverity ?? "n/a"}
+								</span>
 							</td>
-							<td style={props.tableCellStyle}>
-								<div style={{ display: "grid", gap: "6px" }}>
+							<td>{formatPullRequestAction(run.pullRequestAction)}</td>
+							<td>{formatDateTime(run.createdAt)}</td>
+							<td>
+								<div className={styles.linksColumn}>
 									{run.commentUrl ? (
 										<a
+											className={styles.textLink}
 											href={run.commentUrl}
 											rel="noopener"
-											style={props.linkStyle}
 											target="_blank"
 										>
-											Comment
+											Summary comment
 										</a>
 									) : null}
 									{run.inlineReviewUrl ? (
 										<a
+											className={styles.textLink}
 											href={run.inlineReviewUrl}
 											rel="noopener"
-											style={props.linkStyle}
 											target="_blank"
 										>
 											Inline review
 										</a>
 									) : null}
 									{run.checkRunId ? (
-										<span style={props.secondaryPillStyle}>
+										<span className={getBadgeClassName("neutral")}>
 											Check #{run.checkRunId}
 										</span>
-									) : null}
+									) : (
+										<span className={styles.mutedText}>
+											No linked artifacts
+										</span>
+									)}
 								</div>
 							</td>
 						</tr>
@@ -109,9 +123,18 @@ export function ReviewRunsHistoryTable(props: ReviewRunsHistoryTableProps) {
 	);
 }
 
-function formatDateTime(value: string) {
-	return new Intl.DateTimeFormat("en-US", {
-		dateStyle: "medium",
-		timeStyle: "short",
-	}).format(new Date(value));
+function getBadgeClassName(tone: BadgeTone) {
+	if (tone === "success") {
+		return `${styles.badge} ${styles.badgeSuccess}`;
+	}
+
+	if (tone === "warning") {
+		return `${styles.badge} ${styles.badgeWarning}`;
+	}
+
+	if (tone === "danger") {
+		return `${styles.badge} ${styles.badgeDanger}`;
+	}
+
+	return `${styles.badge} ${styles.badgeNeutral}`;
 }
