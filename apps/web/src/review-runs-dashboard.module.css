@@ -158,6 +158,74 @@
 	margin: 0 0 8px;
 }
 
+.detailTopBar {
+	align-items: center;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 16px;
+	justify-content: space-between;
+	margin-bottom: 18px;
+}
+
+.breadcrumbs {
+	align-items: center;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 10px;
+}
+
+.breadcrumbLink,
+.breadcrumbCurrent {
+	font-size: 0.92rem;
+	font-weight: 700;
+}
+
+.breadcrumbLink {
+	color: #5c4022;
+	text-decoration: none;
+}
+
+.breadcrumbLink:hover {
+	text-decoration: underline;
+}
+
+.breadcrumbCurrent,
+.breadcrumbDivider {
+	color: var(--text-soft);
+}
+
+.detailHero {
+	background: var(--bg-elevated);
+	backdrop-filter: blur(10px);
+	border: 1px solid var(--border);
+	border-radius: 32px;
+	box-shadow: var(--shadow-soft);
+	display: grid;
+	gap: 20px;
+	grid-template-columns: minmax(0, 1.6fr) minmax(280px, 0.8fr);
+	margin-bottom: 24px;
+	padding: 28px;
+}
+
+.detailHeroContent {
+	display: grid;
+	gap: 16px;
+}
+
+.detailHeroAside {
+	align-content: start;
+	display: grid;
+	gap: 14px;
+}
+
+.detailTitle {
+	font-family: var(--font-display);
+	font-size: clamp(2.3rem, 4.4vw, 4rem);
+	line-height: 0.98;
+	margin: 0;
+	max-width: 12ch;
+}
+
 .statusRailText {
 	color: var(--text-muted);
 	line-height: 1.65;
@@ -304,9 +372,40 @@
 	transform: translateY(0);
 }
 
+.secondaryButton {
+	align-items: center;
+	background: rgba(255, 255, 255, 0.66);
+	border: 1px solid rgba(60, 45, 31, 0.14);
+	border-radius: 999px;
+	color: var(--text);
+	display: inline-flex;
+	font-size: 0.95rem;
+	font-weight: 700;
+	gap: 10px;
+	min-height: 52px;
+	padding: 0 18px;
+	text-decoration: none;
+	transition:
+		transform 120ms ease,
+		border-color 120ms ease,
+		box-shadow 120ms ease;
+}
+
+.secondaryButton:hover {
+	border-color: rgba(60, 45, 31, 0.24);
+	box-shadow: var(--shadow-card);
+	transform: translateY(-1px);
+}
+
 .contentStack {
 	display: grid;
 	gap: 20px;
+}
+
+.inlineActionRow {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 12px;
 }
 
 .statePanel,
@@ -634,7 +733,8 @@
 
 @media (max-width: 1100px) {
 	.masthead,
-	.latestPanel {
+	.latestPanel,
+	.detailHero {
 		grid-template-columns: 1fr;
 	}
 
@@ -678,8 +778,14 @@
 
 	.summaryHeader,
 	.searchPanelHeader,
-	.historyPanelHeader {
+	.historyPanelHeader,
+	.detailTopBar {
 		flex-direction: column;
 		align-items: flex-start;
+	}
+
+	.detailTitle,
+	.description {
+		max-width: none;
 	}
 }

@@ -40,6 +40,12 @@ export type ReviewRunsPageSearchParams = {
 	repository?: SearchParamValue;
 };
 
+export type ReviewRunsRouteParams = {
+	owner?: string;
+	pullNumber?: string;
+	repository?: string;
+};
+
 export type ReviewRunsResponse = z.infer<typeof reviewRunsResponseSchema>;
 
 type ReviewRunsFormValues = {
@@ -72,11 +78,7 @@ export async function loadReviewRunsPageData(input: {
 	fetchImplementation?: typeof fetch;
 	searchParams?: ReviewRunsPageSearchParams;
 }): Promise<ReviewRunsPageData> {
-	const form = {
-		owner: readFirstSearchParam(input.searchParams?.owner),
-		pullNumber: readFirstSearchParam(input.searchParams?.pullNumber),
-		repository: readFirstSearchParam(input.searchParams?.repository),
-	};
+	const form = readReviewRunsFormValues(input.searchParams);
 
 	if (!form.owner && !form.repository && !form.pullNumber) {
 		return {
@@ -86,29 +88,89 @@ export async function loadReviewRunsPageData(input: {
 		};
 	}
 
-	const pullNumber = Number.parseInt(form.pullNumber, 10);
+	const lookup = parseReviewRunsLookup(form);
 
-	if (
-		!form.owner ||
-		!form.repository ||
-		!form.pullNumber ||
-		Number.isNaN(pullNumber) ||
-		pullNumber <= 0
-	) {
+	if (!lookup.success) {
 		return {
 			apiBaseUrl: input.apiBaseUrl,
-			error: "Pull request number must be a positive integer.",
+			error: lookup.error,
 			form,
 			state: "error",
 		};
 	}
 
+	return loadReadyReviewRunsPageData({
+		apiBaseUrl: input.apiBaseUrl,
+		fetchImplementation: input.fetchImplementation,
+		form,
+		lookup: lookup.data,
+	});
+}
+
+export async function loadReviewRunsDetailPageData(input: {
+	apiBaseUrl: string;
+	fetchImplementation?: typeof fetch;
+	params?: ReviewRunsRouteParams;
+}): Promise<ReviewRunsPageData> {
+	const form = {
+		owner: input.params?.owner ?? "",
+		pullNumber: input.params?.pullNumber ?? "",
+		repository: input.params?.repository ?? "",
+	};
+
+	const lookup = parseReviewRunsLookup(form);
+
+	if (!lookup.success) {
+		return {
+			apiBaseUrl: input.apiBaseUrl,
+			error: lookup.error,
+			form,
+			state: "error",
+		};
+	}
+
+	return loadReadyReviewRunsPageData({
+		apiBaseUrl: input.apiBaseUrl,
+		fetchImplementation: input.fetchImplementation,
+		form,
+		lookup: lookup.data,
+	});
+}
+
+export function buildReviewRunsDetailPath(input: {
+	owner: string;
+	pullNumber: number | string;
+	repository: string;
+}) {
+	return `/pull-requests/${encodeURIComponent(input.owner)}/${encodeURIComponent(input.repository)}/${input.pullNumber}`;
+}
+
+export function buildReviewRunsSearchPath(input: {
+	owner: string;
+	pullNumber: number | string;
+	repository: string;
+}) {
+	const searchParams = new URLSearchParams({
+		owner: input.owner,
+		pullNumber: String(input.pullNumber),
+		repository: input.repository,
+	});
+
+	return `/?${searchParams.toString()}`;
+}
+
+async function loadReadyReviewRunsPageData(input: {
+	apiBaseUrl: string;
+	fetchImplementation?: typeof fetch;
+	form: ReviewRunsFormValues;
+	lookup: ReviewRunsLookupSuccess["data"];
+}): Promise<ReviewRunsPageData> {
 	const fetchImplementation = input.fetchImplementation ?? fetch;
 	const requestUrl = buildReviewRunsRequestUrl({
 		apiBaseUrl: input.apiBaseUrl,
-		owner: form.owner,
-		pullNumber,
-		repository: form.repository,
+		owner: input.lookup.owner,
+		pullNumber: input.lookup.pullNumber,
+		repository: input.lookup.repository,
 	});
 
 	try {
@@ -120,7 +182,7 @@ export async function loadReviewRunsPageData(input: {
 			return {
 				apiBaseUrl: input.apiBaseUrl,
 				error: `PullSense could not load review runs right now (HTTP ${response.status}).`,
-				form,
+				form: input.form,
 				state: "error",
 			};
 		}
@@ -131,7 +193,7 @@ export async function loadReviewRunsPageData(input: {
 			return {
 				apiBaseUrl: input.apiBaseUrl,
 				error: "PullSense received an unexpected review history response.",
-				form,
+				form: input.form,
 				state: "error",
 			};
 		}
@@ -139,7 +201,7 @@ export async function loadReviewRunsPageData(input: {
 		return {
 			apiBaseUrl: input.apiBaseUrl,
 			data: parsed.data,
-			form,
+			form: input.form,
 			state: "ready",
 		};
 	} catch (error) {
@@ -149,10 +211,62 @@ export async function loadReviewRunsPageData(input: {
 		return {
 			apiBaseUrl: input.apiBaseUrl,
 			error: `PullSense could not reach the API: ${message}.`,
-			form,
+			form: input.form,
 			state: "error",
 		};
 	}
+}
+
+type ReviewRunsLookup =
+	| {
+			data: {
+				owner: string;
+				pullNumber: number;
+				repository: string;
+			};
+			success: true;
+	  }
+	| {
+			error: string;
+			success: false;
+	  };
+
+type ReviewRunsLookupSuccess = Extract<ReviewRunsLookup, { success: true }>;
+
+function readReviewRunsFormValues(
+	searchParams?: ReviewRunsPageSearchParams,
+): ReviewRunsFormValues {
+	return {
+		owner: readFirstSearchParam(searchParams?.owner),
+		pullNumber: readFirstSearchParam(searchParams?.pullNumber),
+		repository: readFirstSearchParam(searchParams?.repository),
+	};
+}
+
+function parseReviewRunsLookup(form: ReviewRunsFormValues): ReviewRunsLookup {
+	const pullNumber = Number.parseInt(form.pullNumber, 10);
+
+	if (
+		!form.owner ||
+		!form.repository ||
+		!form.pullNumber ||
+		Number.isNaN(pullNumber) ||
+		pullNumber <= 0
+	) {
+		return {
+			error: "Pull request number must be a positive integer.",
+			success: false,
+		};
+	}
+
+	return {
+		data: {
+			owner: form.owner,
+			pullNumber,
+			repository: form.repository,
+		},
+		success: true,
+	};
 }
 
 function readFirstSearchParam(value: SearchParamValue) {

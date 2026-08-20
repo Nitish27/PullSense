@@ -1,4 +1,7 @@
+import Link from "next/link";
+
 import type { ReviewRunsResponse } from "./review-runs";
+import { buildReviewRunsDetailPath } from "./review-runs";
 import styles from "./review-runs-dashboard.module.css";
 import { ReviewRunsHistoryTable } from "./review-runs-history-table";
 import {
@@ -13,6 +16,7 @@ import {
 
 type ReviewRunsReadyStateProps = {
 	data: ReviewRunsResponse;
+	variant?: "dashboard" | "detail";
 };
 
 export function ReviewRunsReadyState(props: ReviewRunsReadyStateProps) {
@@ -24,6 +28,12 @@ export function ReviewRunsReadyState(props: ReviewRunsReadyStateProps) {
 	const failedRuns = props.data.runs.filter(
 		(run) => run.conclusion === "failure" || run.status === "failed",
 	).length;
+	const variant = props.variant ?? "dashboard";
+	const detailHref = buildReviewRunsDetailPath({
+		owner: props.data.owner,
+		pullNumber: props.data.pullNumber,
+		repository: props.data.repository,
+	});
 
 	return (
 		<div className={styles.contentStack}>
@@ -104,6 +114,13 @@ export function ReviewRunsReadyState(props: ReviewRunsReadyStateProps) {
 							<p className={styles.metaValue}>{getRunHealthLabel(latest)}</p>
 						</div>
 					</div>
+					{variant === "dashboard" ? (
+						<div className={styles.inlineActionRow}>
+							<Link className={styles.secondaryButton} href={detailHref}>
+								Open dedicated PR route
+							</Link>
+						</div>
+					) : null}
 				</div>
 				<div className={styles.railStack}>
 					<section className={styles.artifactCard}>

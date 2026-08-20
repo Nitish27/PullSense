@@ -1,6 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { loadReviewRunsPageData } from "./review-runs";
+import {
+	buildReviewRunsDetailPath,
+	loadReviewRunsDetailPageData,
+	loadReviewRunsPageData,
+} from "./review-runs";
 
 describe("loadReviewRunsPageData", () => {
 	it("returns an idle state when the search params are missing", async () => {
@@ -162,5 +166,76 @@ describe("loadReviewRunsPageData", () => {
 			},
 			state: "error",
 		});
+	});
+
+	it("loads review runs for dedicated PR detail route params", async () => {
+		const fetchImplementation = vi.fn(async () => ({
+			json: async () => ({
+				latest: null,
+				owner: "Nitish27",
+				pullNumber: 4,
+				repository: "PullSense",
+				runs: [],
+			}),
+			ok: true,
+		}));
+
+		const result = await loadReviewRunsDetailPageData({
+			apiBaseUrl: "http://localhost:3001",
+			fetchImplementation: fetchImplementation as never,
+			params: {
+				owner: "Nitish27",
+				pullNumber: "4",
+				repository: "PullSense",
+			},
+		});
+
+		expect(fetchImplementation).toHaveBeenCalledWith(
+			"http://localhost:3001/repos/Nitish27/PullSense/pulls/4/review-runs",
+			{
+				cache: "no-store",
+			},
+		);
+		expect(result).toMatchObject({
+			apiBaseUrl: "http://localhost:3001",
+			form: {
+				owner: "Nitish27",
+				pullNumber: "4",
+				repository: "PullSense",
+			},
+			state: "ready",
+		});
+	});
+
+	it("returns a validation error for invalid dedicated route params", async () => {
+		await expect(
+			loadReviewRunsDetailPageData({
+				apiBaseUrl: "http://localhost:3001",
+				params: {
+					owner: "Nitish27",
+					pullNumber: "bad-value",
+					repository: "PullSense",
+				},
+			}),
+		).resolves.toEqual({
+			apiBaseUrl: "http://localhost:3001",
+			error: "Pull request number must be a positive integer.",
+			form: {
+				owner: "Nitish27",
+				pullNumber: "bad-value",
+				repository: "PullSense",
+			},
+			state: "error",
+		});
+	});
+
+	it("builds an internal PullSense PR detail route", () => {
+		expect(
+			buildReviewRunsDetailPath({
+				owner: "Nitish27",
+				pullNumber: 7,
+				repository: "PullSense",
+			}),
+		).toBe("/pull-requests/Nitish27/PullSense/7");
 	});
 });
