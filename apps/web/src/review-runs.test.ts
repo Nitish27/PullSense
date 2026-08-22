@@ -1,7 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
+	buildRepositoryHealthPath,
 	buildReviewRunsDetailPath,
+	loadRepositoryReviewHealthPageData,
 	loadReviewRunsDetailPageData,
 	loadReviewRunsPageData,
 } from "./review-runs";
@@ -237,5 +239,102 @@ describe("loadReviewRunsPageData", () => {
 				repository: "PullSense",
 			}),
 		).toBe("/pull-requests/Nitish27/PullSense/7");
+	});
+
+	it("loads repository health data for the dedicated repository route", async () => {
+		const fetchImplementation = vi.fn(async () => ({
+			json: async () => ({
+				failureTrends: [
+					{ category: "gemini", count: 1 },
+					{ category: "github", count: 0 },
+					{ category: "database", count: 0 },
+					{ category: "queue", count: 0 },
+					{ category: "unknown", count: 0 },
+				],
+				metrics: {
+					averageReviewLatencyMs: 4100,
+					failedRuns: 1,
+					successfulRuns: 3,
+					totalRuns: 4,
+				},
+				owner: "Nitish27",
+				recentPullRequests: [],
+				repository: "PullSense",
+			}),
+			ok: true,
+		}));
+
+		const result = await loadRepositoryReviewHealthPageData({
+			apiBaseUrl: "http://localhost:3001",
+			fetchImplementation: fetchImplementation as never,
+			params: {
+				owner: "Nitish27",
+				repository: "PullSense",
+			},
+		});
+
+		expect(fetchImplementation).toHaveBeenCalledWith(
+			"http://localhost:3001/repositories/Nitish27/PullSense/review-health",
+			{
+				cache: "no-store",
+			},
+		);
+		expect(result).toMatchObject({
+			apiBaseUrl: "http://localhost:3001",
+			form: {
+				owner: "Nitish27",
+				repository: "PullSense",
+			},
+			state: "ready",
+		});
+	});
+
+	it("returns an error state when a repository route parameter is missing", async () => {
+		await expect(
+			loadRepositoryReviewHealthPageData({
+				apiBaseUrl: "http://localhost:3001",
+				params: {
+					owner: "Nitish27",
+				},
+			}),
+		).resolves.toEqual({
+			apiBaseUrl: "http://localhost:3001",
+			error: "Repository owner and name are required.",
+			form: {
+				owner: "Nitish27",
+				repository: "",
+			},
+			state: "error",
+		});
+	});
+
+	it("returns an error state when repository health is unavailable", async () => {
+		const fetchImplementation = vi.fn(async () => ({
+			ok: false,
+			status: 503,
+		}));
+
+		await expect(
+			loadRepositoryReviewHealthPageData({
+				apiBaseUrl: "http://localhost:3001",
+				fetchImplementation: fetchImplementation as never,
+				params: {
+					owner: "Nitish27",
+					repository: "PullSense",
+				},
+			}),
+		).resolves.toMatchObject({
+			error: "PullSense could not load repository health right now (HTTP 503).",
+			state: "error",
+		});
+	});
+
+	it("builds an internal PullSense repository health route", () => {
+		expect(
+			buildRepositoryHealthPath({
+				owner: "Nitish27",
+				repository: "PullSense",
+			}),
+		).toBe("/repositories/Nitish27/PullSense");
 	});
 });

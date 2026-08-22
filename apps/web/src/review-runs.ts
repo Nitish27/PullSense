@@ -32,6 +32,24 @@ const reviewRunsResponseSchema = z.object({
 	runs: z.array(serializedReviewRunSchema),
 });
 
+const repositoryReviewHealthResponseSchema = z.object({
+	failureTrends: z.array(
+		z.object({
+			category: z.enum(["gemini", "github", "database", "queue", "unknown"]),
+			count: z.number().int().nonnegative(),
+		}),
+	),
+	metrics: z.object({
+		averageReviewLatencyMs: z.number().int().nonnegative().nullable(),
+		failedRuns: z.number().int().nonnegative(),
+		successfulRuns: z.number().int().nonnegative(),
+		totalRuns: z.number().int().nonnegative(),
+	}),
+	owner: z.string(),
+	recentPullRequests: z.array(serializedReviewRunSchema),
+	repository: z.string(),
+});
+
 type SearchParamValue = string | string[] | undefined;
 
 export type ReviewRunsPageSearchParams = {
@@ -46,7 +64,16 @@ export type ReviewRunsRouteParams = {
 	repository?: string;
 };
 
+export type RepositoryHealthRouteParams = {
+	owner?: string;
+	repository?: string;
+};
+
 export type ReviewRunsResponse = z.infer<typeof reviewRunsResponseSchema>;
+
+export type RepositoryReviewHealthResponse = z.infer<
+	typeof repositoryReviewHealthResponseSchema
+>;
 
 type ReviewRunsFormValues = {
 	owner: string;
@@ -70,6 +97,25 @@ export type ReviewRunsPageData =
 			apiBaseUrl: string;
 			data: ReviewRunsResponse;
 			form: ReviewRunsFormValues;
+			state: "ready";
+	  };
+
+type RepositoryHealthFormValues = {
+	owner: string;
+	repository: string;
+};
+
+export type RepositoryHealthPageData =
+	| {
+			apiBaseUrl: string;
+			error: string;
+			form: RepositoryHealthFormValues;
+			state: "error";
+	  }
+	| {
+			apiBaseUrl: string;
+			data: RepositoryReviewHealthResponse;
+			form: RepositoryHealthFormValues;
 			state: "ready";
 	  };
 
@@ -137,6 +183,79 @@ export async function loadReviewRunsDetailPageData(input: {
 	});
 }
 
+export async function loadRepositoryReviewHealthPageData(input: {
+	apiBaseUrl: string;
+	fetchImplementation?: typeof fetch;
+	params?: RepositoryHealthRouteParams;
+}): Promise<RepositoryHealthPageData> {
+	const form = {
+		owner: input.params?.owner ?? "",
+		repository: input.params?.repository ?? "",
+	};
+	const lookup = parseRepositoryHealthLookup(form);
+
+	if (!lookup.success) {
+		return {
+			apiBaseUrl: input.apiBaseUrl,
+			error: lookup.error,
+			form,
+			state: "error",
+		};
+	}
+
+	const fetchImplementation = input.fetchImplementation ?? fetch;
+	const requestUrl = buildRepositoryHealthRequestUrl({
+		apiBaseUrl: input.apiBaseUrl,
+		owner: lookup.data.owner,
+		repository: lookup.data.repository,
+	});
+
+	try {
+		const response = await fetchImplementation(requestUrl, {
+			cache: "no-store",
+		});
+
+		if (!response.ok) {
+			return {
+				apiBaseUrl: input.apiBaseUrl,
+				error: `PullSense could not load repository health right now (HTTP ${response.status}).`,
+				form,
+				state: "error",
+			};
+		}
+
+		const parsed = repositoryReviewHealthResponseSchema.safeParse(
+			await response.json(),
+		);
+
+		if (!parsed.success) {
+			return {
+				apiBaseUrl: input.apiBaseUrl,
+				error: "PullSense received an unexpected repository health response.",
+				form,
+				state: "error",
+			};
+		}
+
+		return {
+			apiBaseUrl: input.apiBaseUrl,
+			data: parsed.data,
+			form,
+			state: "ready",
+		};
+	} catch (error) {
+		const message =
+			error instanceof Error ? error.message : "Unknown request failure";
+
+		return {
+			apiBaseUrl: input.apiBaseUrl,
+			error: `PullSense could not reach the API: ${message}.`,
+			form,
+			state: "error",
+		};
+	}
+}
+
 export function buildReviewRunsDetailPath(input: {
 	owner: string;
 	pullNumber: number | string;
@@ -157,6 +276,13 @@ export function buildReviewRunsSearchPath(input: {
 	});
 
 	return `/?${searchParams.toString()}`;
+}
+
+export function buildRepositoryHealthPath(input: {
+	owner: string;
+	repository: string;
+}) {
+	return `/repositories/${encodeURIComponent(input.owner)}/${encodeURIComponent(input.repository)}`;
 }
 
 async function loadReadyReviewRunsPageData(input: {
@@ -233,6 +359,16 @@ type ReviewRunsLookup =
 
 type ReviewRunsLookupSuccess = Extract<ReviewRunsLookup, { success: true }>;
 
+type RepositoryHealthLookup =
+	| {
+			data: RepositoryHealthFormValues;
+			success: true;
+	  }
+	| {
+			error: string;
+			success: false;
+	  };
+
 function readReviewRunsFormValues(
 	searchParams?: ReviewRunsPageSearchParams,
 ): ReviewRunsFormValues {
@@ -269,6 +405,22 @@ function parseReviewRunsLookup(form: ReviewRunsFormValues): ReviewRunsLookup {
 	};
 }
 
+function parseRepositoryHealthLookup(
+	form: RepositoryHealthFormValues,
+): RepositoryHealthLookup {
+	if (!form.owner || !form.repository) {
+		return {
+			error: "Repository owner and name are required.",
+			success: false,
+		};
+	}
+
+	return {
+		data: form,
+		success: true,
+	};
+}
+
 function readFirstSearchParam(value: SearchParamValue) {
 	if (Array.isArray(value)) {
 		return value[0] ?? "";
@@ -286,4 +438,14 @@ function buildReviewRunsRequestUrl(input: {
 	const apiBaseUrl = input.apiBaseUrl.replace(/\/$/, "");
 
 	return `${apiBaseUrl}/repos/${encodeURIComponent(input.owner)}/${encodeURIComponent(input.repository)}/pulls/${input.pullNumber}/review-runs`;
+}
+
+function buildRepositoryHealthRequestUrl(input: {
+	apiBaseUrl: string;
+	owner: string;
+	repository: string;
+}) {
+	const apiBaseUrl = input.apiBaseUrl.replace(/\/$/, "");
+
+	return `${apiBaseUrl}/repositories/${encodeURIComponent(input.owner)}/${encodeURIComponent(input.repository)}/review-health`;
 }
