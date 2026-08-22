@@ -8,6 +8,12 @@ export type GitHubAppConfig = {
 
 export type PullRequestFilesClient = {
 	pulls: {
+		get?(input: { owner: string; pull_number: number; repo: string }): Promise<{
+			data: {
+				body?: string | null;
+				html_url?: string;
+			};
+		}>;
 		listFiles(input: {
 			owner: string;
 			page: number;
@@ -113,6 +119,39 @@ export type PullRequestReviewClient = {
 				id: number;
 			};
 		}>;
+		update?(input: {
+			body: string;
+			owner: string;
+			pull_number: number;
+			repo: string;
+		}): Promise<{
+			data: {
+				body?: string | null;
+				html_url?: string;
+			};
+		}>;
+	};
+};
+
+export type PullRequestDescriptionClient = {
+	pulls: {
+		get(input: { owner: string; pull_number: number; repo: string }): Promise<{
+			data: {
+				body?: string | null;
+				html_url?: string;
+			};
+		}>;
+		update(input: {
+			body: string;
+			owner: string;
+			pull_number: number;
+			repo: string;
+		}): Promise<{
+			data: {
+				body?: string | null;
+				html_url?: string;
+			};
+		}>;
 	};
 };
 
@@ -158,8 +197,29 @@ export type PullRequestCheckRunClient = {
 	};
 };
 
-export type GitHubInstallationClient = PullRequestFilesClient &
+export type GitHubInstallationRepositoriesClient = {
+	apps: {
+		listReposAccessibleToInstallation(input: {
+			page: number;
+			per_page: number;
+		}): Promise<{
+			data: {
+				repositories: Array<{
+					full_name: string;
+					html_url: string;
+					name: string;
+					owner: { login: string };
+					private: boolean;
+				}>;
+			};
+		}>;
+	};
+};
+
+export type GitHubInstallationClient = GitHubInstallationRepositoriesClient &
+	PullRequestFilesClient &
 	PullRequestCommentClient &
+	PullRequestDescriptionClient &
 	PullRequestReviewClient &
 	PullRequestCheckRunClient;
 

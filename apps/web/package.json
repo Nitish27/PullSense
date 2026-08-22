@@ -7,7 +7,7 @@
     "build": "next build",
     "dev": "next dev --port 3000",
     "lint": "biome check app src next.config.ts next-env.d.ts",
-    "test": "node -e \"console.log('No web tests yet')\"",
+    "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
 	"dependencies": {

@@ -6,6 +6,7 @@ import {
 	createReviewRun,
 	ensureReviewRunsTable,
 	getLatestReviewRunForPullRequest,
+	getRepositoryReviewHealth,
 	getReviewRunById,
 	listReviewRunsForPullRequest,
 	markReviewRunCompleted,
@@ -28,7 +29,7 @@ describe("ensureReviewRunsTable", () => {
 
 		await ensureReviewRunsTable(client);
 
-		expect(query).toHaveBeenCalledTimes(2);
+		expect(query).toHaveBeenCalledTimes(4);
 		expect(statements[0]).toContain("create table if not exists review_runs");
 		expect(statements[0]).toContain("status text not null");
 		expect(statements[0]).toContain("conclusion text");
@@ -37,6 +38,12 @@ describe("ensureReviewRunsTable", () => {
 		expect(statements[0]).toContain("inline_review_id bigint");
 		expect(statements[0]).toContain("error_message text");
 		expect(statements[0]).toContain("created_at timestamptz not null");
+		expect(statements[2]).toContain(
+			"create index if not exists review_runs_repository_created_at_idx",
+		);
+		expect(statements[3]).toContain(
+			"create index if not exists review_runs_head_sha_status_idx",
+		);
 	});
 });
 
@@ -105,7 +112,7 @@ describe("createReviewRun", () => {
 			query,
 		};
 
-		const reviewRun = await createReviewRun(client, {
+		const result = await createReviewRun(client, {
 			headSha: "abc123",
 			installationId: 42,
 			owner: "Nitish27",
@@ -115,7 +122,10 @@ describe("createReviewRun", () => {
 		});
 
 		expect(query).toHaveBeenCalledTimes(1);
-		expect(statements[0]).toContain("insert into review_runs");
+		expect(statements[0]).toContain("pg_advisory_xact_lock");
+		expect(statements[0]).toContain("inserted_review_run");
+		expect(statements[0]).toContain("($3::integer)::text");
+		expect(statements[0]).toContain("pull_number = $3::integer");
 		expect(values[0]).toEqual([
 			"Nitish27",
 			"PullSense",
@@ -125,28 +135,139 @@ describe("createReviewRun", () => {
 			"opened",
 			"queued",
 		]);
-		expect(reviewRun).toEqual({
-			checkRunId: null,
-			commentId: null,
-			commentUrl: null,
-			completedAt: null,
-			conclusion: null,
-			createdAt,
-			errorMessage: null,
+		expect(result).toEqual({
+			reviewRun: {
+				checkRunId: null,
+				commentId: null,
+				commentUrl: null,
+				completedAt: null,
+				conclusion: null,
+				createdAt,
+				errorMessage: null,
+				headSha: "abc123",
+				id: 7,
+				inlineReviewId: null,
+				inlineReviewUrl: null,
+				installationId: 42,
+				overallSeverity: null,
+				owner: "Nitish27",
+				pullNumber: 9,
+				pullRequestAction: "opened",
+				repository: "PullSense",
+				startedAt: null,
+				status: "queued",
+				summary: null,
+				updatedAt: createdAt,
+			},
+			wasCreated: true,
+		});
+	});
+
+	it("normalizes bigint-backed identifier fields returned as strings", async () => {
+		const createdAt = new Date("2026-07-22T18:45:15.113Z");
+		const client: ReviewRunDatabaseClient = {
+			query: vi.fn(async () => ({
+				rows: [
+					{
+						check_run_id: "89018430853",
+						comment_id: "4892704092",
+						comment_url:
+							"https://github.com/Nitish27/PullSense/pull/2#issuecomment-4892704092",
+						completed_at: createdAt.toISOString(),
+						conclusion: "success",
+						created_at: createdAt.toISOString(),
+						error_message: null,
+						head_sha: "aa0ce889215b30de6e5da3577040e2e3d5402fb9",
+						id: "5",
+						inline_review_id: "4757655628",
+						inline_review_url:
+							"https://github.com/Nitish27/PullSense/pull/2#pullrequestreview-4757655628",
+						installation_id: "141542735",
+						overall_severity: "low",
+						owner: "Nitish27",
+						pull_number: "2",
+						pull_request_action: "synchronize",
+						repository: "PullSense",
+						started_at: createdAt.toISOString(),
+						status: "completed",
+						summary: "Latest completed run",
+						updated_at: createdAt.toISOString(),
+					},
+				],
+			})),
+		};
+
+		const result = await createReviewRun(client, {
+			headSha: "aa0ce889215b30de6e5da3577040e2e3d5402fb9",
+			installationId: 141542735,
+			owner: "Nitish27",
+			pullNumber: 2,
+			pullRequestAction: "synchronize",
+			repository: "PullSense",
+		});
+
+		expect(result).toMatchObject({
+			reviewRun: {
+				checkRunId: 89018430853,
+				commentId: 4892704092,
+				id: 5,
+				inlineReviewId: 4757655628,
+				installationId: 141542735,
+				pullNumber: 2,
+			},
+			wasCreated: true,
+		});
+	});
+
+	it("reuses an existing non-failed run for the same head sha instead of creating a duplicate row", async () => {
+		const createdAt = new Date("2026-07-22T18:45:15.113Z");
+		const client: ReviewRunDatabaseClient = {
+			query: vi.fn(async () => ({
+				rows: [
+					{
+						check_run_id: null,
+						comment_id: null,
+						comment_url: null,
+						completed_at: null,
+						conclusion: null,
+						created_at: createdAt.toISOString(),
+						error_message: null,
+						head_sha: "abc123",
+						id: 12,
+						inline_review_id: null,
+						inline_review_url: null,
+						installation_id: 42,
+						overall_severity: null,
+						owner: "Nitish27",
+						pull_number: 9,
+						pull_request_action: "opened",
+						repository: "PullSense",
+						started_at: null,
+						status: "queued",
+						summary: null,
+						updated_at: createdAt.toISOString(),
+						was_created: false,
+					},
+				],
+			})),
+		};
+
+		const result = await createReviewRun(client, {
 			headSha: "abc123",
-			id: 7,
-			inlineReviewId: null,
-			inlineReviewUrl: null,
 			installationId: 42,
-			overallSeverity: null,
 			owner: "Nitish27",
 			pullNumber: 9,
 			pullRequestAction: "opened",
 			repository: "PullSense",
-			startedAt: null,
-			status: "queued",
-			summary: null,
-			updatedAt: createdAt,
+		});
+
+		expect(result).toMatchObject({
+			reviewRun: {
+				headSha: "abc123",
+				id: 12,
+				status: "queued",
+			},
+			wasCreated: false,
 		});
 	});
 });
@@ -306,6 +427,109 @@ describe("PR-scoped review run queries", () => {
 	});
 });
 
+describe("repository review health queries", () => {
+	it("returns bounded repository metrics, failure trends, and the latest run for each recent PR", async () => {
+		const createdAt = new Date("2026-08-14T09:00:00.000Z");
+		const statements: string[] = [];
+		const values: unknown[][] = [];
+		const client: ReviewRunDatabaseClient = {
+			query: vi.fn(async (text: string, params?: unknown[]) => {
+				statements.push(text);
+				values.push(params ?? []);
+
+				if (statements.length === 1) {
+					return {
+						rows: [
+							{
+								average_review_latency_ms: "4200",
+								failed_runs: "2",
+								successful_runs: "5",
+								total_runs: "8",
+							},
+						],
+					};
+				}
+
+				if (statements.length === 2) {
+					return {
+						rows: [
+							{ failure_category: "gemini", count: "2" },
+							{ failure_category: "github", count: "1" },
+						],
+					};
+				}
+
+				return {
+					rows: [
+						{
+							check_run_id: "8801",
+							comment_id: "500",
+							comment_url:
+								"https://github.com/Nitish27/PullSense/pull/9#issuecomment-500",
+							completed_at: createdAt.toISOString(),
+							conclusion: "success",
+							created_at: createdAt.toISOString(),
+							error_message: null,
+							head_sha: "latest-sha",
+							id: "9",
+							inline_review_id: null,
+							inline_review_url: null,
+							installation_id: "42",
+							overall_severity: "low",
+							owner: "Nitish27",
+							pull_number: "9",
+							pull_request_action: "synchronize",
+							repository: "PullSense",
+							started_at: createdAt.toISOString(),
+							status: "completed",
+							summary: "Latest PullSense review",
+							updated_at: createdAt.toISOString(),
+						},
+					],
+				};
+			}),
+		};
+
+		await expect(
+			getRepositoryReviewHealth(client, {
+				owner: "Nitish27",
+				repository: "PullSense",
+			}),
+		).resolves.toEqual({
+			failureTrends: [
+				{ category: "gemini", count: 2 },
+				{ category: "github", count: 1 },
+				{ category: "database", count: 0 },
+				{ category: "queue", count: 0 },
+				{ category: "unknown", count: 0 },
+			],
+			metrics: {
+				averageReviewLatencyMs: 4200,
+				failedRuns: 2,
+				successfulRuns: 5,
+				totalRuns: 8,
+			},
+			recentPullRequests: [
+				expect.objectContaining({
+					checkRunId: 8801,
+					headSha: "latest-sha",
+					id: 9,
+					pullNumber: 9,
+				}),
+			],
+		});
+
+		expect(statements).toHaveLength(3);
+		expect(statements[0]).toContain("average_review_latency_ms");
+		expect(statements[0]).toContain("interval '30 days'");
+		expect(statements[1]).toContain("failure_category");
+		expect(statements[2]).toContain("distinct on (pull_number)");
+		expect(values[0]).toEqual(["Nitish27", "PullSense"]);
+		expect(values[1]).toEqual(["Nitish27", "PullSense"]);
+		expect(values[2]).toEqual(["Nitish27", "PullSense", 20]);
+	});
+});
+
 describe("review run lifecycle updates", () => {
 	it("marks a review run as in progress with a started timestamp", async () => {
 		const statements: string[] = [];
@@ -409,8 +633,11 @@ describe("review run lifecycle updates", () => {
 				repository: "PullSense",
 			}),
 		).resolves.toMatchObject({
-			id: 0,
-			status: "queued",
+			reviewRun: {
+				id: 0,
+				status: "queued",
+			},
+			wasCreated: true,
 		});
 		await expect(
 			store.markReviewRunInProgress({ reviewRunId: 0 }),

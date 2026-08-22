@@ -22,6 +22,7 @@ What exists today:
 - PostgreSQL connection/bootstrap foundation for persisted review runs
 - persisted review run lifecycle states: `queued`, `in_progress`, `completed`, and `failed`
 - PR-scoped review status API backed by persisted `review_runs`
+- repository health API and dashboard for 30-day review metrics, provider failure trends, and recent PR activity
 - best-effort GitHub Check Runs sync for queued, in-progress, completed, and failed review states
 - BullMQ worker flow for PR review jobs
 - changed-file fetch from GitHub pull requests
@@ -90,7 +91,7 @@ pnpm dev:infra
 ```
 
 This starts:
-- PostgreSQL on `localhost:5432`
+- PostgreSQL on `localhost:5433`
 - Redis on `localhost:6379`
 
 If Docker is unavailable, you only need a reachable Redis instance for the current PR review flow.
@@ -129,6 +130,8 @@ pnpm dev:web
 9. Confirm PullSense posts a `## PullSense review` summary comment in the PR conversation.
 10. If high-confidence findings were anchored successfully, confirm GitHub also shows a grouped inline review in the PR review / Files changed UI.
 11. If the GitHub App has `Checks: Read and write` repository permission, confirm the PR also shows a `PullSense review` check run moving through queued/in-progress/completed states.
+12. Redeliver the same `pull_request` payload from the GitHub App deliveries screen and confirm PullSense treats the same non-failed `head_sha` as a duplicate instead of queueing a second review run.
+13. To verify retry-after-failure behavior, trigger one failed review for a fresh `head_sha`, then redeliver that same `pull_request.synchronize` event after restoring the worker and confirm PullSense accepts it as a retry.
 
 Current visible output:
 
@@ -138,6 +141,10 @@ Current visible output:
 - structured severity plus findings from Gemini
 - one local API route for persisted PR review status and recent run history:
   `GET /repos/:owner/:repository/pulls/:pullNumber/review-runs`
+- one local API route for repository review health:
+  `GET /repositories/:owner/:repository/review-health`
+- a repository health dashboard:
+  `http://localhost:3000/repositories/:owner/:repository`
 
 Not in this slice yet:
 
@@ -184,6 +191,52 @@ Important values:
 - `GEMINI_MODEL`
 - `NEXT_PUBLIC_API_BASE_URL`
 - `NEXT_PUBLIC_APP_NAME`
+
+## Share With Testers
+
+If you want other users to test PullSense, move from the local `ngrok` setup to a small hosted beta.
+
+What you need before inviting testers:
+
+- deploy the API to a stable public URL
+- deploy the worker as a long-running process
+- use a real PostgreSQL database
+- use a real Redis instance
+- keep the GitHub App webhook pointed at the deployed API URL
+- store production secrets securely in the hosting platform
+
+Required GitHub App repository permissions:
+
+- `Contents: Read`
+- `Metadata: Read`
+- `Pull requests: Read and write`
+- `Checks: Read and write`
+
+Recommended tester flow:
+
+1. Deploy the API and worker.
+2. Update the GitHub App webhook URL from `ngrok` to the deployed `/webhook` endpoint.
+3. Reinstall or refresh the GitHub App installation if permissions changed.
+4. Install the app on one or more test repositories.
+5. Ask testers to open or update pull requests.
+6. Confirm each PR shows:
+   - a PullSense summary comment in the conversation
+   - inline review comments when findings can be anchored to diff lines
+   - a PullSense check run in the GitHub Checks UI
+7. Review logs plus the `review_runs` table for failures, false positives, and missing feedback.
+
+Useful tester checklist:
+
+- Was the summary understandable?
+- Were inline comments attached to the right lines?
+- Were the findings actually helpful?
+- Did the check run clearly show review status?
+- Were there any noisy or incorrect findings?
+
+Current production-readiness note:
+
+- PullSense is ready for limited private testing on small repositories.
+- It is not yet a polished public app with onboarding, billing, or repository indexing/RAG.
 
 ## Development Notes
 

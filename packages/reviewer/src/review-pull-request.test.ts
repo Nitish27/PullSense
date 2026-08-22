@@ -1,8 +1,42 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { reviewPullRequest } from "./review-pull-request";
+import {
+	buildReviewPrompt,
+	createGeminiReviewGenerator,
+	reviewPullRequest,
+} from "./review-pull-request";
 
 describe("reviewPullRequest", () => {
+	it("includes anti-noise guidance so the model prefers fewer, higher-signal findings", () => {
+		const prompt = buildReviewPrompt({
+			files: [
+				{
+					filename: "docker-compose.yml",
+					patch: '@@ -1 +1 @@\n-"5432:5432"\n+"5433:5432"',
+					sha: "abc123",
+					status: "modified",
+				},
+			],
+			headSha: "head-sha",
+			owner: "Nitish27",
+			pullNumber: 11,
+			repository: "PullSense",
+		});
+
+		expect(prompt).toContain(
+			"Prefer zero findings over weak, generic, or speculative findings.",
+		);
+		expect(prompt).toContain(
+			"Do not flag style-only, naming-only, formatting-only, or documentation-only nits.",
+		);
+		expect(prompt).toContain(
+			"Do not leave generic reminders to add tests, monitor the rollout, or coordinate follow-up work unless the diff shows a concrete risk.",
+		);
+		expect(prompt).toContain(
+			"Return at most 3 issues, ordered from highest to lowest user impact.",
+		);
+	});
+
 	it("returns a normalized structured review from the model response", async () => {
 		const generateReview = vi.fn(async () => ({
 			inlineFindings: [
@@ -108,5 +142,51 @@ describe("reviewPullRequest", () => {
 				},
 			),
 		).rejects.toThrow("Gemini review response did not match expected schema");
+	});
+
+	it("uses a low-temperature JSON generation config for stable review output", async () => {
+		const fetchImplementation = vi.fn(async () => ({
+			json: async () => ({
+				candidates: [
+					{
+						content: {
+							parts: [
+								{
+									text: JSON.stringify({
+										inlineFindings: [],
+										issues: [],
+										overallSeverity: "low",
+										summary: "No actionable issues found.",
+									}),
+								},
+							],
+						},
+					},
+				],
+			}),
+			ok: true,
+		}));
+		const generateReview = createGeminiReviewGenerator({
+			apiKey: "gemini-test-key",
+			fetch: fetchImplementation as unknown as typeof fetch,
+		});
+
+		await generateReview({
+			model: "gemini-test",
+			prompt: "Review this pull request.",
+		});
+
+		const firstCall = fetchImplementation.mock.calls[0] as unknown as
+			| [string, RequestInit]
+			| undefined;
+		const request = firstCall?.[1];
+		expect(request).toBeDefined();
+		expect(request?.method).toBe("POST");
+		expect(JSON.parse(String(request?.body))).toMatchObject({
+			generationConfig: {
+				responseMimeType: "application/json",
+				temperature: 0.1,
+			},
+		});
 	});
 });

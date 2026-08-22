@@ -80,14 +80,70 @@ export function registerWebhookRoutes(
 				return reply.code(202).send({ status: "ignored" });
 			}
 
-			const reviewRun = await options.reviewRunStore.createQueuedReviewRun({
-				headSha: reviewJob.headSha,
-				installationId: reviewJob.installationId,
-				owner: reviewJob.owner,
-				pullNumber: reviewJob.pullNumber,
-				pullRequestAction: reviewJob.action,
-				repository: reviewJob.repository,
-			});
+			const latestReviewRun =
+				await options.reviewRunStore.getLatestReviewRunForPullRequest({
+					owner: reviewJob.owner,
+					pullNumber: reviewJob.pullNumber,
+					repository: reviewJob.repository,
+				});
+
+			if (
+				latestReviewRun &&
+				latestReviewRun.headSha === reviewJob.headSha &&
+				latestReviewRun.status !== "failed"
+			) {
+				app.log.info(
+					{
+						action: reviewJob.action,
+						eventName,
+						headSha: reviewJob.headSha,
+						installationId: reviewJob.installationId,
+						owner: reviewJob.owner,
+						pullNumber: reviewJob.pullNumber,
+						repository: reviewJob.repository,
+						reviewRunId: latestReviewRun.id,
+						status: latestReviewRun.status,
+					},
+					"Skipped duplicate GitHub webhook for an already-reviewed head sha",
+				);
+
+				return reply.code(202).send({
+					reviewRunId: latestReviewRun.id,
+					status: "duplicate",
+				});
+			}
+
+			const { reviewRun, wasCreated } =
+				await options.reviewRunStore.createQueuedReviewRun({
+					headSha: reviewJob.headSha,
+					installationId: reviewJob.installationId,
+					owner: reviewJob.owner,
+					pullNumber: reviewJob.pullNumber,
+					pullRequestAction: reviewJob.action,
+					repository: reviewJob.repository,
+				});
+
+			if (!wasCreated) {
+				app.log.info(
+					{
+						action: reviewJob.action,
+						eventName,
+						headSha: reviewJob.headSha,
+						installationId: reviewJob.installationId,
+						owner: reviewJob.owner,
+						pullNumber: reviewJob.pullNumber,
+						repository: reviewJob.repository,
+						reviewRunId: reviewRun.id,
+						status: reviewRun.status,
+					},
+					"Skipped duplicate GitHub webhook after DB-level head sha dedupe",
+				);
+
+				return reply.code(202).send({
+					reviewRunId: reviewRun.id,
+					status: "duplicate",
+				});
+			}
 			try {
 				const checkRun = await options.createCheckRun({
 					headSha: reviewJob.headSha,

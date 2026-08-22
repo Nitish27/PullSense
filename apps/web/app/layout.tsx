@@ -1,10 +1,12 @@
 import { APP_NAME } from "@ai-code-review/shared";
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
+import "./globals.css";
 
 export const metadata: Metadata = {
 	title: APP_NAME,
-	description: "Phase 0 foundation for the context-aware AI code review bot.",
+	description:
+		"PullSense dashboard for AI review status, GitHub artifacts, and run diagnostics.",
 };
 
 type RootLayoutProps = {

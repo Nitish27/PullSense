@@ -1,8 +1,13 @@
 import type { PullReviewJob } from "@ai-code-review/shared";
-import { type ConnectionOptions, Queue } from "bullmq";
+import { type ConnectionOptions, type JobsOptions, Queue } from "bullmq";
 
 export type ReviewQueue = {
 	enqueueReviewJob(job: PullReviewJob): Promise<void>;
+};
+
+export type ReviewJobRetryOptions = {
+	attempts: number;
+	backoffMs: number;
 };
 
 export const reviewQueueName = "pullsense-review-jobs";
@@ -31,7 +36,25 @@ export function createNoopReviewQueue(): ReviewQueue {
 	};
 }
 
-export function createBullMqReviewQueue(redisUrl: string): ReviewQueue {
+export function createReviewJobOptions(
+	options: ReviewJobRetryOptions,
+): JobsOptions {
+	return {
+		attempts: options.attempts,
+		backoff: {
+			delay: options.backoffMs,
+			type: "exponential",
+		},
+	};
+}
+
+export function createBullMqReviewQueue(
+	redisUrl: string,
+	retryOptions: ReviewJobRetryOptions = {
+		attempts: 3,
+		backoffMs: 5_000,
+	},
+): ReviewQueue {
 	const queue = new Queue<PullReviewJob, void, typeof reviewJobName>(
 		reviewQueueName,
 		{
@@ -41,7 +64,7 @@ export function createBullMqReviewQueue(redisUrl: string): ReviewQueue {
 
 	return {
 		async enqueueReviewJob(job) {
-			await queue.add(reviewJobName, job);
+			await queue.add(reviewJobName, job, createReviewJobOptions(retryOptions));
 		},
 	};
 }
