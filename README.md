@@ -22,6 +22,7 @@ What exists today:
 - PostgreSQL connection/bootstrap foundation for persisted review runs
 - persisted review run lifecycle states: `queued`, `in_progress`, `completed`, and `failed`
 - PR-scoped review status API backed by persisted `review_runs`
+- repository health API and dashboard for 30-day review metrics, provider failure trends, and recent PR activity
 - best-effort GitHub Check Runs sync for queued, in-progress, completed, and failed review states
 - BullMQ worker flow for PR review jobs
 - changed-file fetch from GitHub pull requests
@@ -140,6 +141,10 @@ Current visible output:
 - structured severity plus findings from Gemini
 - one local API route for persisted PR review status and recent run history:
   `GET /repos/:owner/:repository/pulls/:pullNumber/review-runs`
+- one local API route for repository review health:
+  `GET /repositories/:owner/:repository/review-health`
+- a repository health dashboard:
+  `http://localhost:3000/repositories/:owner/:repository`
 
 Not in this slice yet:
 

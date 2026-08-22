@@ -29,7 +29,7 @@ describe("ensureReviewRunsTable", () => {
 
 		await ensureReviewRunsTable(client);
 
-		expect(query).toHaveBeenCalledTimes(3);
+		expect(query).toHaveBeenCalledTimes(4);
 		expect(statements[0]).toContain("create table if not exists review_runs");
 		expect(statements[0]).toContain("status text not null");
 		expect(statements[0]).toContain("conclusion text");
@@ -39,6 +39,9 @@ describe("ensureReviewRunsTable", () => {
 		expect(statements[0]).toContain("error_message text");
 		expect(statements[0]).toContain("created_at timestamptz not null");
 		expect(statements[2]).toContain(
+			"create index if not exists review_runs_repository_created_at_idx",
+		);
+		expect(statements[3]).toContain(
 			"create index if not exists review_runs_head_sha_status_idx",
 		);
 	});

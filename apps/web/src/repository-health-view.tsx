@@ -4,10 +4,7 @@ import type {
 	RepositoryHealthPageData,
 	RepositoryReviewHealthResponse,
 } from "./review-runs";
-import {
-	buildReviewRunsDetailPath,
-	buildReviewRunsSearchPath,
-} from "./review-runs";
+import { buildReviewRunsDetailPath } from "./review-runs";
 import styles from "./review-runs-dashboard.module.css";
 import {
 	type BadgeTone,
@@ -26,12 +23,6 @@ type RepositoryHealthViewProps = {
 };
 
 export function RepositoryHealthView(props: RepositoryHealthViewProps) {
-	const backHref = buildReviewRunsSearchPath({
-		owner: props.pageData.form.owner,
-		pullNumber: "",
-		repository: props.pageData.form.repository,
-	});
-
 	return (
 		<main className={styles.page}>
 			<div className={styles.shell}>
@@ -43,7 +34,7 @@ export function RepositoryHealthView(props: RepositoryHealthViewProps) {
 						<span className={styles.breadcrumbDivider}>/</span>
 						<span className={styles.breadcrumbCurrent}>Repository health</span>
 					</div>
-					<Link className={styles.secondaryButton} href={backHref}>
+					<Link className={styles.secondaryButton} href="/">
 						Back to command center
 					</Link>
 				</div>

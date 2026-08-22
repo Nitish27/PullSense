@@ -239,6 +239,11 @@ export async function ensureReviewRunsTable(client: ReviewRunDatabaseClient) {
 	`);
 
 	await client.query(`
+		create index if not exists review_runs_repository_created_at_idx
+		on review_runs (owner, repository, created_at desc)
+	`);
+
+	await client.query(`
 		create index if not exists review_runs_head_sha_status_idx
 		on review_runs (owner, repository, pull_number, head_sha, created_at desc)
 		where status <> 'failed'
