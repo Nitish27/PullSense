@@ -1,13 +1,18 @@
 import Link from "next/link";
 
-import type { SetupStatusPageData, SetupStatusResponse } from "./review-runs";
-import { buildSetupCenterPath } from "./review-runs";
+import type {
+	GitHubInstallationHealthPageData,
+	SetupStatusPageData,
+	SetupStatusResponse,
+} from "./review-runs";
+import { buildRepositoryHealthPath, buildSetupCenterPath } from "./review-runs";
 import styles from "./review-runs-dashboard.module.css";
 import type { BadgeTone } from "./review-runs-presenters";
 
 type SetupCenterViewProps = {
 	apiBaseUrl: string;
 	appName: string;
+	githubInstallationHealthPageData: GitHubInstallationHealthPageData;
 	pageData: SetupStatusPageData;
 	phase: string;
 };
@@ -166,6 +171,10 @@ function SetupCenterReadyState(
 				</div>
 			</section>
 
+			<GitHubConnectionPanel
+				pageData={props.githubInstallationHealthPageData}
+			/>
+
 			<section className={`${styles.panel} ${styles.setupOnboardingPanel}`}>
 				<div className={styles.historyPanelHeader}>
 					<div>
@@ -225,6 +234,145 @@ function SetupCenterReadyState(
 					controls that modify your GitHub App.
 				</p>
 			</section>
+		</div>
+	);
+}
+
+function GitHubConnectionPanel(props: {
+	pageData: GitHubInstallationHealthPageData;
+}) {
+	if (props.pageData.state === "error") {
+		return (
+			<section className={`${styles.panel} ${styles.githubConnectionPanel}`}>
+				<GitHubConnectionHeader badge="Unavailable" tone="warning" />
+				<div className={styles.githubConnectionNotice}>
+					<p>{props.pageData.error}</p>
+					<p>
+						Local setup checks can still be ready. Confirm the GitHub App
+						credentials, then refresh this page to retry the verification.
+					</p>
+				</div>
+			</section>
+		);
+	}
+
+	const { data } = props.pageData;
+
+	if (data.state === "missing_credentials") {
+		return (
+			<section className={`${styles.panel} ${styles.githubConnectionPanel}`}>
+				<GitHubConnectionHeader badge="Credentials needed" tone="danger" />
+				<div className={styles.githubConnectionNotice}>
+					<p>{data.detail}</p>
+					<p>
+						Add the GitHub App ID and private key to the API environment, then
+						restart the API to discover installations safely.
+					</p>
+				</div>
+			</section>
+		);
+	}
+
+	if (data.installations.length === 0) {
+		return (
+			<section className={`${styles.panel} ${styles.githubConnectionPanel}`}>
+				<GitHubConnectionHeader badge="No installations" tone="warning" />
+				<div className={styles.githubConnectionNotice}>
+					<p>{data.detail}</p>
+					<p>
+						The credentials are valid, but PullSense is not installed on an
+						account or organization yet. Install the GitHub App on a test
+						repository, then refresh this page.
+					</p>
+				</div>
+			</section>
+		);
+	}
+
+	return (
+		<section className={`${styles.panel} ${styles.githubConnectionPanel}`}>
+			<GitHubConnectionHeader
+				badge={`${data.installations.length} installation${data.installations.length === 1 ? "" : "s"} verified`}
+				tone="success"
+			/>
+			<div className={styles.githubInstallationGrid}>
+				{data.installations.map((installation) => (
+					<article
+						className={styles.githubInstallationCard}
+						key={installation.id}
+					>
+						<div className={styles.githubInstallationHeader}>
+							<div>
+								<p className={styles.metaLabel}>Installed on</p>
+								<h3 className={styles.setupStatusTitle}>
+									{installation.accountLogin}
+								</h3>
+							</div>
+							<span className={getBadgeClassName("neutral")}>
+								{installation.repositorySelection === "all"
+									? "All repositories"
+									: "Selected repositories"}
+							</span>
+						</div>
+						{installation.repositories.length > 0 ? (
+							<ul className={styles.githubRepositoryList}>
+								{installation.repositories.map((repository) => (
+									<li key={repository.fullName}>
+										<div>
+											<p className={styles.githubRepositoryName}>
+												{repository.fullName}
+											</p>
+											<p className={styles.githubRepositoryMeta}>
+												{repository.private ? "Private" : "Public"} repository
+											</p>
+										</div>
+										<div className={styles.githubRepositoryActions}>
+											<Link
+												className={styles.githubRepositoryLink}
+												href={buildRepositoryHealthPath({
+													owner: repository.ownerLogin,
+													repository: repository.name,
+												})}
+											>
+												Open health
+											</Link>
+											<a
+												href={repository.htmlUrl}
+												rel="noreferrer"
+												target="_blank"
+											>
+												GitHub
+											</a>
+										</div>
+									</li>
+								))}
+							</ul>
+						) : (
+							<p className={styles.githubRepositoryEmpty}>
+								No accessible repositories were returned for this installation.
+							</p>
+						)}
+					</article>
+				))}
+			</div>
+		</section>
+	);
+}
+
+function GitHubConnectionHeader(props: { badge: string; tone: BadgeTone }) {
+	return (
+		<div className={styles.historyPanelHeader}>
+			<div>
+				<p className={styles.kicker}>GitHub App connection</p>
+				<h2 className={styles.panelTitle}>
+					Verified installations and repositories
+				</h2>
+				<p className={styles.panelText}>
+					This is a live, read-only GitHub check. It confirms installation
+					health separately from local credential configuration.
+				</p>
+			</div>
+			<span className={getBadgeClassName(props.tone)}>{props.badge}</span>
 		</div>
 	);
 }

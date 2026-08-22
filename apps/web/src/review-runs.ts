@@ -63,6 +63,27 @@ const setupStatusResponseSchema = z.object({
 	webhook: setupStatusServiceSchema,
 });
 
+const githubInstallationHealthResponseSchema = z.object({
+	detail: z.string(),
+	installations: z.array(
+		z.object({
+			accountLogin: z.string(),
+			id: z.number(),
+			repositories: z.array(
+				z.object({
+					fullName: z.string(),
+					htmlUrl: z.string().url(),
+					name: z.string(),
+					ownerLogin: z.string(),
+					private: z.boolean(),
+				}),
+			),
+			repositorySelection: z.enum(["all", "selected"]),
+		}),
+	),
+	state: z.enum(["connected", "missing_credentials", "unavailable"]),
+});
+
 type SearchParamValue = string | string[] | undefined;
 
 export type ReviewRunsPageSearchParams = {
@@ -89,6 +110,10 @@ export type RepositoryReviewHealthResponse = z.infer<
 >;
 
 export type SetupStatusResponse = z.infer<typeof setupStatusResponseSchema>;
+
+export type GitHubInstallationHealthResponse = z.infer<
+	typeof githubInstallationHealthResponseSchema
+>;
 
 type ReviewRunsFormValues = {
 	owner: string;
@@ -143,6 +168,18 @@ export type SetupStatusPageData =
 	| {
 			apiBaseUrl: string;
 			data: SetupStatusResponse;
+			state: "ready";
+	  };
+
+export type GitHubInstallationHealthPageData =
+	| {
+			apiBaseUrl: string;
+			error: string;
+			state: "error";
+	  }
+	| {
+			apiBaseUrl: string;
+			data: GitHubInstallationHealthResponse;
 			state: "ready";
 	  };
 
@@ -309,6 +346,56 @@ export async function loadSetupStatusPageData(input: {
 			return {
 				apiBaseUrl: input.apiBaseUrl,
 				error: "PullSense received an unexpected setup status response.",
+				state: "error",
+			};
+		}
+
+		return {
+			apiBaseUrl: input.apiBaseUrl,
+			data: parsed.data,
+			state: "ready",
+		};
+	} catch (error) {
+		const message =
+			error instanceof Error ? error.message : "Unknown request failure";
+
+		return {
+			apiBaseUrl: input.apiBaseUrl,
+			error: `PullSense could not reach the API: ${message}.`,
+			state: "error",
+		};
+	}
+}
+
+export async function loadGitHubInstallationHealthPageData(input: {
+	apiBaseUrl: string;
+	fetchImplementation?: typeof fetch;
+}): Promise<GitHubInstallationHealthPageData> {
+	const fetchImplementation = input.fetchImplementation ?? fetch;
+	const requestUrl = `${input.apiBaseUrl.replace(/\/$/, "")}/setup/github-installations`;
+
+	try {
+		const response = await fetchImplementation(requestUrl, {
+			cache: "no-store",
+		});
+
+		if (!response.ok) {
+			return {
+				apiBaseUrl: input.apiBaseUrl,
+				error: `PullSense could not load GitHub installation health right now (HTTP ${response.status}).`,
+				state: "error",
+			};
+		}
+
+		const parsed = githubInstallationHealthResponseSchema.safeParse(
+			await response.json(),
+		);
+
+		if (!parsed.success) {
+			return {
+				apiBaseUrl: input.apiBaseUrl,
+				error:
+					"PullSense received an unexpected GitHub installation health response.",
 				state: "error",
 			};
 		}

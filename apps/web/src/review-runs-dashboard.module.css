@@ -736,7 +736,8 @@
 }
 
 .setupReadinessPanel,
-.setupOnboardingPanel {
+.setupOnboardingPanel,
+.githubConnectionPanel {
 	padding: 28px;
 }
 
@@ -834,6 +835,88 @@
 	gap: 20px;
 	grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
 	padding: 26px 28px;
+}
+
+.githubConnectionNotice {
+	background: rgba(255, 255, 255, 0.62);
+	border: 1px solid rgba(60, 45, 31, 0.08);
+	border-radius: 20px;
+	display: grid;
+	gap: 8px;
+	padding: 20px;
+}
+
+.githubConnectionNotice p,
+.githubRepositoryEmpty {
+	color: var(--text-muted);
+	line-height: 1.62;
+	margin: 0;
+}
+
+.githubInstallationGrid {
+	display: grid;
+	gap: 14px;
+}
+
+.githubInstallationCard {
+	background: rgba(255, 255, 255, 0.66);
+	border: 1px solid rgba(60, 45, 31, 0.08);
+	border-radius: 22px;
+	box-shadow: var(--shadow-card);
+	display: grid;
+	gap: 18px;
+	padding: 20px;
+}
+
+.githubInstallationHeader,
+.githubRepositoryActions,
+.githubRepositoryList li {
+	align-items: center;
+	display: flex;
+	gap: 14px;
+	justify-content: space-between;
+}
+
+.githubRepositoryList {
+	border-top: 1px solid rgba(60, 45, 31, 0.08);
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+.githubRepositoryList li {
+	border-bottom: 1px solid rgba(60, 45, 31, 0.08);
+	padding: 14px 0;
+}
+
+.githubRepositoryName {
+	font-weight: 800;
+	margin: 0;
+}
+
+.githubRepositoryMeta {
+	color: var(--text-soft);
+	font-size: 0.88rem;
+	margin: 4px 0 0;
+}
+
+.githubRepositoryActions a {
+	color: var(--text-muted);
+	font-size: 0.88rem;
+	font-weight: 800;
+	text-decoration: none;
+}
+
+.githubRepositoryActions a:hover {
+	color: var(--accent-deep);
+	text-decoration: underline;
+}
+
+.githubRepositoryActions .githubRepositoryLink {
+	background: rgba(83, 109, 77, 0.12);
+	border-radius: 999px;
+	color: var(--accent-deep);
+	padding: 7px 11px;
 }
 
 .failureTrendGrid {
@@ -1058,7 +1141,9 @@
 	.detailTopBar,
 	.detailActions,
 	.repositoryActivityCardHeader,
-	.repositoryActivityMeta {
+	.repositoryActivityMeta,
+	.githubInstallationHeader,
+	.githubRepositoryList li {
 		flex-direction: column;
 		align-items: flex-start;
 	}

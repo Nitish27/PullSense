@@ -4,6 +4,7 @@ import {
 	buildRepositoryHealthPath,
 	buildReviewRunsDetailPath,
 	buildSetupCenterPath,
+	loadGitHubInstallationHealthPageData,
 	loadRepositoryReviewHealthPageData,
 	loadReviewRunsDetailPageData,
 	loadReviewRunsPageData,
@@ -407,6 +408,72 @@ describe("loadReviewRunsPageData", () => {
 		).resolves.toEqual({
 			apiBaseUrl: "http://localhost:3001",
 			error: "PullSense could not load setup status right now (HTTP 503).",
+			state: "error",
+		});
+	});
+
+	it("loads connected GitHub installations and accessible repositories", async () => {
+		const fetchImplementation = vi.fn(async () => ({
+			json: async () => ({
+				detail: "GitHub App installations are connected.",
+				installations: [
+					{
+						accountLogin: "Nitish27",
+						id: 141542735,
+						repositories: [
+							{
+								fullName: "Nitish27/PullSense",
+								htmlUrl: "https://github.com/Nitish27/PullSense",
+								name: "PullSense",
+								ownerLogin: "Nitish27",
+								private: true,
+							},
+						],
+						repositorySelection: "selected",
+					},
+				],
+				state: "connected",
+			}),
+			ok: true,
+		}));
+
+		const result = await loadGitHubInstallationHealthPageData({
+			apiBaseUrl: "http://localhost:3001",
+			fetchImplementation: fetchImplementation as never,
+		});
+
+		expect(fetchImplementation).toHaveBeenCalledWith(
+			"http://localhost:3001/setup/github-installations",
+			{ cache: "no-store" },
+		);
+		expect(result).toMatchObject({
+			data: {
+				installations: [
+					{
+						repositories: [{ fullName: "Nitish27/PullSense" }],
+					},
+				],
+				state: "connected",
+			},
+			state: "ready",
+		});
+	});
+
+	it("returns an error state when GitHub installation health is unavailable", async () => {
+		const fetchImplementation = vi.fn(async () => ({
+			ok: false,
+			status: 503,
+		}));
+
+		await expect(
+			loadGitHubInstallationHealthPageData({
+				apiBaseUrl: "http://localhost:3001",
+				fetchImplementation: fetchImplementation as never,
+			}),
+		).resolves.toEqual({
+			apiBaseUrl: "http://localhost:3001",
+			error:
+				"PullSense could not load GitHub installation health right now (HTTP 503).",
 			state: "error",
 		});
 	});
