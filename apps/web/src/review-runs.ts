@@ -359,6 +359,10 @@ export function buildRepositoryHealthPath(input: {
 	return `/repositories/${encodeURIComponent(input.owner)}/${encodeURIComponent(input.repository)}`;
 }
 
+export function buildSetupCenterPath() {
+	return "/settings";
+}
+
 async function loadReadyReviewRunsPageData(input: {
 	apiBaseUrl: string;
 	fetchImplementation?: typeof fetch;

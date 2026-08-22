@@ -4,7 +4,7 @@ import type {
 	RepositoryHealthPageData,
 	RepositoryReviewHealthResponse,
 } from "./review-runs";
-import { buildReviewRunsDetailPath } from "./review-runs";
+import { buildReviewRunsDetailPath, buildSetupCenterPath } from "./review-runs";
 import styles from "./review-runs-dashboard.module.css";
 import {
 	type BadgeTone,
@@ -34,9 +34,17 @@ export function RepositoryHealthView(props: RepositoryHealthViewProps) {
 						<span className={styles.breadcrumbDivider}>/</span>
 						<span className={styles.breadcrumbCurrent}>Repository health</span>
 					</div>
-					<Link className={styles.secondaryButton} href="/">
-						Back to command center
-					</Link>
+					<div className={styles.detailActions}>
+						<Link
+							className={styles.secondaryButton}
+							href={buildSetupCenterPath()}
+						>
+							Setup center
+						</Link>
+						<Link className={styles.secondaryButton} href="/">
+							Back to command center
+						</Link>
+					</div>
 				</div>
 				{renderRepositoryHealthState(props)}
 			</div>

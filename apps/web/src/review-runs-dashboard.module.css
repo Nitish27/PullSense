@@ -227,6 +227,20 @@
 	padding: 28px;
 }
 
+.setupHero {
+	background:
+		linear-gradient(135deg, rgba(83, 109, 77, 0.1), transparent 52%),
+		var(--bg-elevated);
+	backdrop-filter: blur(10px);
+	border: 1px solid var(--border);
+	border-radius: 32px;
+	box-shadow: var(--shadow-soft);
+	display: grid;
+	gap: 20px;
+	grid-template-columns: minmax(0, 1.6fr) minmax(280px, 0.8fr);
+	padding: 28px;
+}
+
 .detailHeroContent {
 	display: grid;
 	gap: 16px;
@@ -721,6 +735,107 @@
 	padding: 28px;
 }
 
+.setupReadinessPanel,
+.setupOnboardingPanel {
+	padding: 28px;
+}
+
+.setupReadinessGrid {
+	display: grid;
+	gap: 14px;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.setupStatusCard {
+	background: rgba(255, 255, 255, 0.66);
+	border: 1px solid rgba(60, 45, 31, 0.08);
+	border-radius: 22px;
+	box-shadow: var(--shadow-card);
+	display: grid;
+	gap: 14px;
+	padding: 20px;
+}
+
+.setupStatusHeader {
+	align-items: flex-start;
+	display: flex;
+	gap: 14px;
+	justify-content: space-between;
+}
+
+.setupStatusTitle,
+.setupStepTitle {
+	font-family: var(--font-display);
+	font-size: 1.45rem;
+	line-height: 1.08;
+	margin: 0;
+}
+
+.setupStatusDetail,
+.setupStatusCaption,
+.setupStepDetail {
+	color: var(--text-muted);
+	line-height: 1.62;
+	margin: 0;
+}
+
+.setupStatusCaption {
+	border-top: 1px solid rgba(60, 45, 31, 0.08);
+	color: var(--text-soft);
+	font-size: 0.88rem;
+	padding-top: 14px;
+}
+
+.setupChecklist {
+	counter-reset: setup-steps;
+	display: grid;
+	gap: 12px;
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+.setupStep {
+	align-items: flex-start;
+	background: rgba(255, 255, 255, 0.58);
+	border: 1px solid rgba(60, 45, 31, 0.08);
+	border-radius: 20px;
+	display: grid;
+	gap: 16px;
+	grid-template-columns: auto minmax(0, 1fr);
+	padding: 18px;
+}
+
+.setupStepNumber {
+	align-items: center;
+	background: #2f2419;
+	border-radius: 999px;
+	color: #f9f3eb;
+	display: inline-flex;
+	font-size: 0.76rem;
+	font-weight: 800;
+	height: 34px;
+	justify-content: center;
+	letter-spacing: 0.08em;
+	width: 34px;
+}
+
+.setupStepTitle {
+	font-size: 1.25rem;
+	margin-bottom: 6px;
+}
+
+.setupTrustCard {
+	align-items: flex-start;
+	background: linear-gradient(135deg, #2b2117, #493126);
+	border-radius: 28px;
+	color: #f7efe7;
+	display: grid;
+	gap: 20px;
+	grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+	padding: 26px 28px;
+}
+
 .failureTrendGrid {
 	display: grid;
 	gap: 12px;
@@ -887,12 +1002,15 @@
 	.masthead,
 	.latestPanel,
 	.detailHero,
-	.repositoryHero {
+	.repositoryHero,
+	.setupHero,
+	.setupTrustCard {
 		grid-template-columns: 1fr;
 	}
 
 	.healthMetricGrid,
-	.failureTrendGrid {
+	.failureTrendGrid,
+	.setupReadinessGrid {
 		grid-template-columns: repeat(2, minmax(0, 1fr));
 	}
 
@@ -947,7 +1065,8 @@
 
 	.healthMetricGrid,
 	.failureTrendGrid,
-	.repositoryActivityGrid {
+	.repositoryActivityGrid,
+	.setupReadinessGrid {
 		grid-template-columns: 1fr;
 	}
 

@@ -1,4 +1,7 @@
+import Link from "next/link";
+
 import type { ReviewRunsPageData } from "./review-runs";
+import { buildSetupCenterPath } from "./review-runs";
 import styles from "./review-runs-dashboard.module.css";
 import { ReviewRunsReadyState } from "./review-runs-ready-state";
 
@@ -75,6 +78,12 @@ export function ReviewRunsDashboard(props: ReviewRunsDashboardProps) {
 								</p>
 							</div>
 						</div>
+						<Link
+							className={styles.secondaryButton}
+							href={buildSetupCenterPath()}
+						>
+							Open setup center
+						</Link>
 					</aside>
 				</section>
 				<form className={styles.searchPanel} method="get">

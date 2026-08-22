@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
 	buildRepositoryHealthPath,
 	buildReviewRunsDetailPath,
+	buildSetupCenterPath,
 	loadRepositoryReviewHealthPageData,
 	loadReviewRunsDetailPageData,
 	loadReviewRunsPageData,
@@ -337,6 +338,10 @@ describe("loadReviewRunsPageData", () => {
 				repository: "PullSense",
 			}),
 		).toBe("/repositories/Nitish27/PullSense");
+	});
+
+	it("builds the internal PullSense setup center route", () => {
+		expect(buildSetupCenterPath()).toBe("/settings");
 	});
 
 	it("loads a sanitized setup status snapshot", async () => {
