@@ -1,5 +1,6 @@
 import {
 	createCheckRunForInstallation,
+	fetchGitHubInstallationHealthForApp,
 	readGitHubAppConfigFromEnv,
 } from "@ai-code-review/github";
 
@@ -30,6 +31,9 @@ const app = createApp({
 					installationId: input.installationId,
 				})
 		: async () => null,
+	getGitHubInstallationHealth: githubAppConfig
+		? () => fetchGitHubInstallationHealthForApp(githubAppConfig)
+		: undefined,
 	reviewQueue: createBullMqReviewQueue(env.REDIS_URL, {
 		attempts: env.REVIEW_JOB_ATTEMPTS,
 		backoffMs: env.REVIEW_JOB_BACKOFF_MS,

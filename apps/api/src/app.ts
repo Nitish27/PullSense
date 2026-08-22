@@ -1,3 +1,4 @@
+import type { GitHubInstallationHealth } from "@ai-code-review/github";
 import Fastify from "fastify";
 import fastifyRawBody from "fastify-raw-body";
 import {
@@ -6,6 +7,7 @@ import {
 } from "./db/review-runs";
 import { getApiEnv, getSetupStatusFromEnv, type SetupStatus } from "./env";
 import { createNoopReviewQueue, type ReviewQueue } from "./queue/review-queue";
+import { registerGitHubInstallationRoutes } from "./routes/github-installations";
 import { registerHealthRoutes } from "./routes/health";
 import { registerReviewRunRoutes } from "./routes/review-runs";
 import { registerSetupStatusRoutes } from "./routes/setup-status";
@@ -21,6 +23,7 @@ type CreateAppOptions = {
 		summary: string;
 		title: string;
 	}) => Promise<{ id: number } | null>;
+	getGitHubInstallationHealth?: () => Promise<GitHubInstallationHealth>;
 	reviewQueue?: ReviewQueue;
 	reviewRunStore?: ReviewRunStore;
 	setupStatus?: SetupStatus;
@@ -40,6 +43,9 @@ export function createApp(options: CreateAppOptions = {}) {
 	registerHealthRoutes(app);
 	registerSetupStatusRoutes(app, {
 		setupStatus: options.setupStatus ?? getSetupStatusFromEnv(getApiEnv()),
+	});
+	registerGitHubInstallationRoutes(app, {
+		getGitHubInstallationHealth: options.getGitHubInstallationHealth,
 	});
 	registerReviewRunRoutes(app, {
 		reviewRunStore: options.reviewRunStore ?? createNoopReviewRunStore(),

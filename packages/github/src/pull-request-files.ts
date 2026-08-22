@@ -197,7 +197,27 @@ export type PullRequestCheckRunClient = {
 	};
 };
 
-export type GitHubInstallationClient = PullRequestFilesClient &
+export type GitHubInstallationRepositoriesClient = {
+	apps: {
+		listReposAccessibleToInstallation(input: {
+			page: number;
+			per_page: number;
+		}): Promise<{
+			data: {
+				repositories: Array<{
+					full_name: string;
+					html_url: string;
+					name: string;
+					owner: { login: string };
+					private: boolean;
+				}>;
+			};
+		}>;
+	};
+};
+
+export type GitHubInstallationClient = GitHubInstallationRepositoriesClient &
+	PullRequestFilesClient &
 	PullRequestCommentClient &
 	PullRequestDescriptionClient &
 	PullRequestReviewClient &
