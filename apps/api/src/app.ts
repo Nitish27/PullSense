@@ -4,9 +4,11 @@ import {
 	createNoopReviewRunStore,
 	type ReviewRunStore,
 } from "./db/review-runs";
+import { getApiEnv, getSetupStatusFromEnv, type SetupStatus } from "./env";
 import { createNoopReviewQueue, type ReviewQueue } from "./queue/review-queue";
 import { registerHealthRoutes } from "./routes/health";
 import { registerReviewRunRoutes } from "./routes/review-runs";
+import { registerSetupStatusRoutes } from "./routes/setup-status";
 import { registerWebhookRoutes } from "./routes/webhook";
 
 type CreateAppOptions = {
@@ -21,6 +23,7 @@ type CreateAppOptions = {
 	}) => Promise<{ id: number } | null>;
 	reviewQueue?: ReviewQueue;
 	reviewRunStore?: ReviewRunStore;
+	setupStatus?: SetupStatus;
 	webhookSecret?: string;
 };
 
@@ -35,6 +38,9 @@ export function createApp(options: CreateAppOptions = {}) {
 	});
 
 	registerHealthRoutes(app);
+	registerSetupStatusRoutes(app, {
+		setupStatus: options.setupStatus ?? getSetupStatusFromEnv(getApiEnv()),
+	});
 	registerReviewRunRoutes(app, {
 		reviewRunStore: options.reviewRunStore ?? createNoopReviewRunStore(),
 	});

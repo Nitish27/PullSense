@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { getApiEnv } from "./env";
+import { getApiEnv, getSetupStatusFromEnv } from "./env";
 
 describe("getApiEnv", () => {
 	it("parses DATABASE_URL from the process environment", () => {
@@ -35,5 +35,41 @@ describe("getApiEnv", () => {
 		);
 		expect(env.REVIEW_JOB_ATTEMPTS).toBe(3);
 		expect(env.REVIEW_JOB_BACKOFF_MS).toBe(5000);
+	});
+
+	it("returns sanitized setup status without exposing configuration values", () => {
+		const setupStatus = getSetupStatusFromEnv(
+			getApiEnv({
+				GEMINI_API_KEY: "super-secret-gemini-key",
+				GITHUB_APP_ID: "12345",
+				GITHUB_PRIVATE_KEY: "super-secret-private-key",
+				GITHUB_WEBHOOK_SECRET: "development-webhook-secret",
+			}),
+		);
+
+		expect(setupStatus).toEqual({
+			database: {
+				detail: "Review-run persistence is ready.",
+				state: "ready",
+			},
+			githubApp: {
+				detail: "GitHub App credentials are configured.",
+				state: "ready",
+			},
+			modelProvider: {
+				detail: "Gemini review generation is configured.",
+				state: "ready",
+			},
+			queue: {
+				detail: "Redis queue configuration is present.",
+				state: "ready",
+			},
+			webhook: {
+				detail:
+					"Development webhook secret is active. Replace it before sharing PullSense.",
+				state: "attention",
+			},
+		});
+		expect(JSON.stringify(setupStatus)).not.toContain("super-secret");
 	});
 });

@@ -9,7 +9,7 @@ import {
 	createPostgresReviewRunStore,
 	ensureReviewRunsTable,
 } from "./db/review-runs";
-import { getApiEnv } from "./env";
+import { getApiEnv, getSetupStatusFromEnv } from "./env";
 import { createBullMqReviewQueue } from "./queue/review-queue";
 
 const env = getApiEnv();
@@ -35,6 +35,7 @@ const app = createApp({
 		backoffMs: env.REVIEW_JOB_BACKOFF_MS,
 	}),
 	reviewRunStore,
+	setupStatus: getSetupStatusFromEnv(env),
 	webhookSecret: env.GITHUB_WEBHOOK_SECRET,
 });
 
