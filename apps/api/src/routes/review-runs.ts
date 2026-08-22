@@ -12,6 +12,11 @@ type ReviewRunRouteParams = {
 	repository: string;
 };
 
+type RepositoryReviewHealthRouteParams = {
+	owner: string;
+	repository: string;
+};
+
 export function registerReviewRunRoutes(
 	app: FastifyInstance,
 	options: RegisterReviewRunRoutesOptions,
@@ -43,6 +48,36 @@ export function registerReviewRunRoutes(
 				pullNumber: scope.pullNumber,
 				repository: scope.repository,
 				runs: runs.map((reviewRun) => serializeReviewRun(reviewRun)),
+			};
+		},
+	);
+
+	app.get<{ Params: RepositoryReviewHealthRouteParams }>(
+		"/repositories/:owner/:repository/review-health",
+		async (request, reply) => {
+			const owner = request.params.owner.trim();
+			const repository = request.params.repository.trim();
+
+			if (!owner || !repository) {
+				return reply.code(400).send({
+					error: "Owner and repository are required.",
+				});
+			}
+
+			const reviewHealth =
+				await options.reviewRunStore.getRepositoryReviewHealth({
+					owner,
+					repository,
+				});
+
+			return {
+				failureTrends: reviewHealth.failureTrends,
+				metrics: reviewHealth.metrics,
+				owner,
+				recentPullRequests: reviewHealth.recentPullRequests.map((reviewRun) =>
+					serializeReviewRun(reviewRun),
+				),
+				repository,
 			};
 		},
 	);

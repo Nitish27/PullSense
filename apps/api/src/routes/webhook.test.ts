@@ -82,6 +82,16 @@ function createReviewRunStore(
 				repository: string;
 			}) => Promise<ReviewRunRecord | null>
 		>(async () => null),
+		getRepositoryReviewHealth: vi.fn(async () => ({
+			failureTrends: [],
+			metrics: {
+				averageReviewLatencyMs: null,
+				failedRuns: 0,
+				successfulRuns: 0,
+				totalRuns: 0,
+			},
+			recentPullRequests: [],
+		})),
 		getReviewRunById: vi.fn(async () => null),
 		listReviewRunsForPullRequest: vi.fn(async () => []),
 		markReviewRunCompleted: vi.fn(async () => undefined),

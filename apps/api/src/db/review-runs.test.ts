@@ -6,6 +6,7 @@ import {
 	createReviewRun,
 	ensureReviewRunsTable,
 	getLatestReviewRunForPullRequest,
+	getRepositoryReviewHealth,
 	getReviewRunById,
 	listReviewRunsForPullRequest,
 	markReviewRunCompleted,
@@ -420,6 +421,109 @@ describe("PR-scoped review run queries", () => {
 			status: "completed",
 			summary: "Latest run only",
 		});
+	});
+});
+
+describe("repository review health queries", () => {
+	it("returns bounded repository metrics, failure trends, and the latest run for each recent PR", async () => {
+		const createdAt = new Date("2026-08-14T09:00:00.000Z");
+		const statements: string[] = [];
+		const values: unknown[][] = [];
+		const client: ReviewRunDatabaseClient = {
+			query: vi.fn(async (text: string, params?: unknown[]) => {
+				statements.push(text);
+				values.push(params ?? []);
+
+				if (statements.length === 1) {
+					return {
+						rows: [
+							{
+								average_review_latency_ms: "4200",
+								failed_runs: "2",
+								successful_runs: "5",
+								total_runs: "8",
+							},
+						],
+					};
+				}
+
+				if (statements.length === 2) {
+					return {
+						rows: [
+							{ failure_category: "gemini", count: "2" },
+							{ failure_category: "github", count: "1" },
+						],
+					};
+				}
+
+				return {
+					rows: [
+						{
+							check_run_id: "8801",
+							comment_id: "500",
+							comment_url:
+								"https://github.com/Nitish27/PullSense/pull/9#issuecomment-500",
+							completed_at: createdAt.toISOString(),
+							conclusion: "success",
+							created_at: createdAt.toISOString(),
+							error_message: null,
+							head_sha: "latest-sha",
+							id: "9",
+							inline_review_id: null,
+							inline_review_url: null,
+							installation_id: "42",
+							overall_severity: "low",
+							owner: "Nitish27",
+							pull_number: "9",
+							pull_request_action: "synchronize",
+							repository: "PullSense",
+							started_at: createdAt.toISOString(),
+							status: "completed",
+							summary: "Latest PullSense review",
+							updated_at: createdAt.toISOString(),
+						},
+					],
+				};
+			}),
+		};
+
+		await expect(
+			getRepositoryReviewHealth(client, {
+				owner: "Nitish27",
+				repository: "PullSense",
+			}),
+		).resolves.toEqual({
+			failureTrends: [
+				{ category: "gemini", count: 2 },
+				{ category: "github", count: 1 },
+				{ category: "database", count: 0 },
+				{ category: "queue", count: 0 },
+				{ category: "unknown", count: 0 },
+			],
+			metrics: {
+				averageReviewLatencyMs: 4200,
+				failedRuns: 2,
+				successfulRuns: 5,
+				totalRuns: 8,
+			},
+			recentPullRequests: [
+				expect.objectContaining({
+					checkRunId: 8801,
+					headSha: "latest-sha",
+					id: 9,
+					pullNumber: 9,
+				}),
+			],
+		});
+
+		expect(statements).toHaveLength(3);
+		expect(statements[0]).toContain("average_review_latency_ms");
+		expect(statements[0]).toContain("interval '30 days'");
+		expect(statements[1]).toContain("failure_category");
+		expect(statements[2]).toContain("distinct on (pull_number)");
+		expect(values[0]).toEqual(["Nitish27", "PullSense"]);
+		expect(values[1]).toEqual(["Nitish27", "PullSense"]);
+		expect(values[2]).toEqual(["Nitish27", "PullSense", 20]);
 	});
 });
 

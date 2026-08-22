@@ -7,6 +7,13 @@ export type ReviewRunStatus = "queued" | "in_progress" | "completed" | "failed";
 
 export type ReviewRunConclusion = "success" | "failure" | "neutral" | "skipped";
 
+export type ReviewRunFailureCategory =
+	| "gemini"
+	| "github"
+	| "database"
+	| "queue"
+	| "unknown";
+
 export type ReviewRunRecord = {
 	checkRunId: number | null;
 	commentId: number | null;
@@ -56,6 +63,18 @@ type ReviewRunRow = {
 	was_created?: boolean;
 };
 
+type RepositoryReviewHealthMetricsRow = {
+	average_review_latency_ms: number | string | null;
+	failed_runs: number | string;
+	successful_runs: number | string;
+	total_runs: number | string;
+};
+
+type RepositoryReviewFailureTrendRow = {
+	count: number | string;
+	failure_category: ReviewRunFailureCategory;
+};
+
 export type ReviewRunDatabaseClient = {
 	query(
 		text: string,
@@ -78,6 +97,25 @@ export type ReviewRunPullRequestScope = {
 	owner: string;
 	pullNumber: number;
 	repository: string;
+};
+
+export type ReviewRunRepositoryScope = {
+	owner: string;
+	repository: string;
+};
+
+export type RepositoryReviewHealth = {
+	failureTrends: Array<{
+		category: ReviewRunFailureCategory;
+		count: number;
+	}>;
+	metrics: {
+		averageReviewLatencyMs: number | null;
+		failedRuns: number;
+		successfulRuns: number;
+		totalRuns: number;
+	};
+	recentPullRequests: ReviewRunRecord[];
 };
 
 export type AttachCheckRunToReviewRunInput = {
@@ -117,6 +155,9 @@ export type ReviewRunStore = {
 	getLatestReviewRunForPullRequest(
 		input: ReviewRunPullRequestScope,
 	): Promise<ReviewRunRecord | null>;
+	getRepositoryReviewHealth(
+		input: ReviewRunRepositoryScope,
+	): Promise<RepositoryReviewHealth>;
 	getReviewRunById(reviewRunId: number): Promise<ReviewRunRecord | null>;
 	listReviewRunsForPullRequest(
 		input: ReviewRunPullRequestScope,
@@ -154,6 +195,16 @@ const reviewRunReturningColumns = `
 	created_at,
 	updated_at
 `;
+
+const repositoryHealthFailureCategories: ReviewRunFailureCategory[] = [
+	"gemini",
+	"github",
+	"database",
+	"queue",
+	"unknown",
+];
+
+const repositoryHealthRecentPullRequestLimit = 20;
 
 export async function ensureReviewRunsTable(client: ReviewRunDatabaseClient) {
 	await client.query(`
@@ -316,6 +367,125 @@ export async function getLatestReviewRunForPullRequest(
 	return row ? mapReviewRunRow(row) : null;
 }
 
+export async function getRepositoryReviewHealth(
+	client: ReviewRunDatabaseClient,
+	input: ReviewRunRepositoryScope,
+): Promise<RepositoryReviewHealth> {
+	const metricsResponse = await client.query(
+		`
+			select
+				count(*)::text as total_runs,
+				count(*) filter (where conclusion = 'success')::text as successful_runs,
+				count(*) filter (
+					where status = 'failed' or conclusion = 'failure'
+				)::text as failed_runs,
+				avg(
+					extract(epoch from (completed_at - started_at)) * 1000
+				) filter (
+					where
+						started_at is not null
+						and completed_at is not null
+						and completed_at >= started_at
+				) as average_review_latency_ms
+			from review_runs
+			where
+				owner = $1
+				and repository = $2
+				and created_at >= now() - interval '30 days'
+		`,
+		[input.owner, input.repository],
+	);
+	const failureTrendsResponse = await client.query(
+		`
+			select
+				case
+					when lower(error_message) like '%gemini%' then 'gemini'
+					when lower(error_message) like '%github%'
+						or lower(error_message) like '%octokit%' then 'github'
+					when lower(error_message) like '%postgres%'
+						or lower(error_message) like '%database%'
+						or lower(error_message) like '%sql%' then 'database'
+					when lower(error_message) like '%bullmq%'
+						or lower(error_message) like '%redis%'
+						or lower(error_message) like '%queue%' then 'queue'
+					else 'unknown'
+				end as failure_category,
+				count(*)::text as count
+			from review_runs
+			where
+				owner = $1
+				and repository = $2
+				and error_message is not null
+				and (status = 'failed' or conclusion = 'failure')
+				and created_at >= now() - interval '30 days'
+			group by failure_category
+		`,
+		[input.owner, input.repository],
+	);
+	const recentPullRequestsResponse = await client.query(
+		`
+			select
+				${reviewRunReturningColumns}
+			from (
+				select distinct on (pull_number)
+					${reviewRunReturningColumns}
+				from review_runs
+				where
+					owner = $1
+					and repository = $2
+					and created_at >= now() - interval '30 days'
+				order by pull_number, created_at desc
+			) as latest_review_runs
+			order by created_at desc
+			limit $3::integer
+		`,
+		[input.owner, input.repository, repositoryHealthRecentPullRequestLimit],
+	);
+
+	const metricsRow = metricsResponse.rows[0] as
+		| RepositoryReviewHealthMetricsRow
+		| undefined;
+	const failureTrendCounts = new Map<ReviewRunFailureCategory, number>();
+
+	for (const row of failureTrendsResponse.rows) {
+		const failureTrend = row as RepositoryReviewFailureTrendRow;
+		failureTrendCounts.set(
+			failureTrend.failure_category,
+			normalizeRequiredIntegerField(
+				failureTrend.count,
+				"repository failure trend count",
+			),
+		);
+	}
+
+	return {
+		failureTrends: repositoryHealthFailureCategories.map((category) => ({
+			category,
+			count: failureTrendCounts.get(category) ?? 0,
+		})),
+		metrics: {
+			averageReviewLatencyMs: normalizeDecimalField(
+				metricsRow?.average_review_latency_ms ?? null,
+			),
+			failedRuns: normalizeRequiredIntegerField(
+				metricsRow?.failed_runs ?? 0,
+				"failed_runs",
+			),
+			successfulRuns: normalizeRequiredIntegerField(
+				metricsRow?.successful_runs ?? 0,
+				"successful_runs",
+			),
+			totalRuns: normalizeRequiredIntegerField(
+				metricsRow?.total_runs ?? 0,
+				"total_runs",
+			),
+		},
+		recentPullRequests: recentPullRequestsResponse.rows.map((row) =>
+			mapReviewRunRow(row as ReviewRunRow),
+		),
+	};
+}
+
 export async function getReviewRunById(
 	client: ReviewRunDatabaseClient,
 	reviewRunId: number,
@@ -437,6 +607,8 @@ export function createPostgresReviewRunStore(
 		createQueuedReviewRun: (input) => createReviewRun(client, input),
 		getLatestReviewRunForPullRequest: (input) =>
 			getLatestReviewRunForPullRequest(client, input),
+		getRepositoryReviewHealth: (input) =>
+			getRepositoryReviewHealth(client, input),
 		getReviewRunById: (reviewRunId) => getReviewRunById(client, reviewRunId),
 		listReviewRunsForPullRequest: (input) =>
 			listReviewRunsForPullRequest(client, input),
@@ -483,6 +655,21 @@ export function createNoopReviewRunStore(): ReviewRunStore {
 		},
 		async getLatestReviewRunForPullRequest() {
 			return null;
+		},
+		async getRepositoryReviewHealth() {
+			return {
+				failureTrends: repositoryHealthFailureCategories.map((category) => ({
+					category,
+					count: 0,
+				})),
+				metrics: {
+					averageReviewLatencyMs: null,
+					failedRuns: 0,
+					successfulRuns: 0,
+					totalRuns: 0,
+				},
+				recentPullRequests: [],
+			};
 		},
 		async getReviewRunById() {
 			return null;
@@ -554,4 +741,18 @@ function normalizeRequiredIntegerField(
 	}
 
 	return parsed;
+}
+
+function normalizeDecimalField(value: number | string | null) {
+	if (value === null) {
+		return null;
+	}
+
+	const parsed = typeof value === "number" ? value : Number.parseFloat(value);
+
+	if (Number.isNaN(parsed)) {
+		throw new Error(`Invalid decimal value for review run metric: ${value}`);
+	}
+
+	return Math.round(parsed);
 }

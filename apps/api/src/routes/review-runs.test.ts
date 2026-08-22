@@ -60,6 +60,16 @@ describe("GET /repos/:owner/:repository/pulls/:pullNumber/review-runs", () => {
 					wasCreated: true,
 				})),
 				getLatestReviewRunForPullRequest,
+				getRepositoryReviewHealth: vi.fn(async () => ({
+					failureTrends: [],
+					metrics: {
+						averageReviewLatencyMs: null,
+						failedRuns: 0,
+						successfulRuns: 0,
+						totalRuns: 0,
+					},
+					recentPullRequests: [],
+				})),
 				getReviewRunById: vi.fn(async () => null),
 				listReviewRunsForPullRequest,
 				markReviewRunCompleted: vi.fn(async () => undefined),
@@ -175,6 +185,16 @@ describe("GET /repos/:owner/:repository/pulls/:pullNumber/review-runs", () => {
 					wasCreated: true,
 				})),
 				getLatestReviewRunForPullRequest,
+				getRepositoryReviewHealth: vi.fn(async () => ({
+					failureTrends: [],
+					metrics: {
+						averageReviewLatencyMs: null,
+						failedRuns: 0,
+						successfulRuns: 0,
+						totalRuns: 0,
+					},
+					recentPullRequests: [],
+				})),
 				getReviewRunById: vi.fn(async () => null),
 				listReviewRunsForPullRequest,
 				markReviewRunCompleted: vi.fn(async () => undefined),
@@ -195,6 +215,101 @@ describe("GET /repos/:owner/:repository/pulls/:pullNumber/review-runs", () => {
 			pullNumber: 999,
 			repository: "PullSense",
 			runs: [],
+		});
+	});
+});
+
+describe("GET /repositories/:owner/:repository/review-health", () => {
+	it("returns repository-level review health and recent PR activity", async () => {
+		const latestReviewRun = createReviewRun(12, {
+			completedAt: new Date("2026-08-14T09:05:00.000Z"),
+			conclusion: "success",
+			overallSeverity: "low",
+			status: "completed",
+			summary: "Repository health sample",
+		});
+		const getRepositoryReviewHealth = vi.fn(async () => ({
+			failureTrends: [
+				{ category: "gemini", count: 1 },
+				{ category: "github", count: 0 },
+				{ category: "database", count: 0 },
+				{ category: "queue", count: 0 },
+				{ category: "unknown", count: 0 },
+			],
+			metrics: {
+				averageReviewLatencyMs: 5000,
+				failedRuns: 1,
+				successfulRuns: 2,
+				totalRuns: 3,
+			},
+			recentPullRequests: [latestReviewRun],
+		}));
+		const app = createApp({
+			reviewRunStore: {
+				attachCheckRunToReviewRun: vi.fn(async () => undefined),
+				createQueuedReviewRun: vi.fn(async () => ({
+					reviewRun: createReviewRun(10),
+					wasCreated: true,
+				})),
+				getLatestReviewRunForPullRequest: vi.fn(async () => null),
+				getRepositoryReviewHealth,
+				getReviewRunById: vi.fn(async () => null),
+				listReviewRunsForPullRequest: vi.fn(async () => []),
+				markReviewRunCompleted: vi.fn(async () => undefined),
+				markReviewRunFailed: vi.fn(async () => undefined),
+				markReviewRunInProgress: vi.fn(async () => undefined),
+			} as never,
+		});
+
+		const response = await app.inject({
+			method: "GET",
+			url: "/repositories/Nitish27/PullSense/review-health",
+		});
+
+		expect(response.statusCode).toBe(200);
+		expect(getRepositoryReviewHealth).toHaveBeenCalledWith({
+			owner: "Nitish27",
+			repository: "PullSense",
+		});
+		expect(response.json()).toEqual({
+			failureTrends: [
+				{ category: "gemini", count: 1 },
+				{ category: "github", count: 0 },
+				{ category: "database", count: 0 },
+				{ category: "queue", count: 0 },
+				{ category: "unknown", count: 0 },
+			],
+			metrics: {
+				averageReviewLatencyMs: 5000,
+				failedRuns: 1,
+				successfulRuns: 2,
+				totalRuns: 3,
+			},
+			owner: "Nitish27",
+			recentPullRequests: [
+				{
+					...latestReviewRun,
+					completedAt: "2026-08-14T09:05:00.000Z",
+					createdAt: "2026-07-03T13:00:00.000Z",
+					startedAt: null,
+					updatedAt: "2026-07-03T13:00:00.000Z",
+				},
+			],
+			repository: "PullSense",
+		});
+	});
+
+	it("rejects blank repository route parameters", async () => {
+		const app = createApp();
+
+		const response = await app.inject({
+			method: "GET",
+			url: "/repositories/%20/PullSense/review-health",
+		});
+
+		expect(response.statusCode).toBe(400);
+		expect(response.json()).toEqual({
+			error: "Owner and repository are required.",
 		});
 	});
 });
