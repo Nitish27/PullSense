@@ -6,6 +6,7 @@ import {
 	loadRepositoryReviewHealthPageData,
 	loadReviewRunsDetailPageData,
 	loadReviewRunsPageData,
+	loadSetupStatusPageData,
 } from "./review-runs";
 
 describe("loadReviewRunsPageData", () => {
@@ -336,5 +337,72 @@ describe("loadReviewRunsPageData", () => {
 				repository: "PullSense",
 			}),
 		).toBe("/repositories/Nitish27/PullSense");
+	});
+
+	it("loads a sanitized setup status snapshot", async () => {
+		const fetchImplementation = vi.fn(async () => ({
+			json: async () => ({
+				database: {
+					detail: "Review-run persistence is ready.",
+					state: "ready",
+				},
+				githubApp: {
+					detail: "GitHub App credentials are configured.",
+					state: "ready",
+				},
+				modelProvider: {
+					detail: "Gemini review generation is configured.",
+					state: "ready",
+				},
+				queue: {
+					detail: "Redis queue configuration is present.",
+					state: "ready",
+				},
+				webhook: {
+					detail: "Webhook signing is configured.",
+					state: "ready",
+				},
+			}),
+			ok: true,
+		}));
+
+		const result = await loadSetupStatusPageData({
+			apiBaseUrl: "http://localhost:3001",
+			fetchImplementation: fetchImplementation as never,
+		});
+
+		expect(fetchImplementation).toHaveBeenCalledWith(
+			"http://localhost:3001/setup-status",
+			{
+				cache: "no-store",
+			},
+		);
+		expect(result).toMatchObject({
+			apiBaseUrl: "http://localhost:3001",
+			data: {
+				webhook: {
+					state: "ready",
+				},
+			},
+			state: "ready",
+		});
+	});
+
+	it("returns an error state when setup status is unavailable", async () => {
+		const fetchImplementation = vi.fn(async () => ({
+			ok: false,
+			status: 503,
+		}));
+
+		await expect(
+			loadSetupStatusPageData({
+				apiBaseUrl: "http://localhost:3001",
+				fetchImplementation: fetchImplementation as never,
+			}),
+		).resolves.toEqual({
+			apiBaseUrl: "http://localhost:3001",
+			error: "PullSense could not load setup status right now (HTTP 503).",
+			state: "error",
+		});
 	});
 });

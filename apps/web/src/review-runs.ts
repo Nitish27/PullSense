@@ -50,6 +50,19 @@ const repositoryReviewHealthResponseSchema = z.object({
 	repository: z.string(),
 });
 
+const setupStatusServiceSchema = z.object({
+	detail: z.string(),
+	state: z.enum(["attention", "missing", "ready"]),
+});
+
+const setupStatusResponseSchema = z.object({
+	database: setupStatusServiceSchema,
+	githubApp: setupStatusServiceSchema,
+	modelProvider: setupStatusServiceSchema,
+	queue: setupStatusServiceSchema,
+	webhook: setupStatusServiceSchema,
+});
+
 type SearchParamValue = string | string[] | undefined;
 
 export type ReviewRunsPageSearchParams = {
@@ -74,6 +87,8 @@ export type ReviewRunsResponse = z.infer<typeof reviewRunsResponseSchema>;
 export type RepositoryReviewHealthResponse = z.infer<
 	typeof repositoryReviewHealthResponseSchema
 >;
+
+export type SetupStatusResponse = z.infer<typeof setupStatusResponseSchema>;
 
 type ReviewRunsFormValues = {
 	owner: string;
@@ -116,6 +131,18 @@ export type RepositoryHealthPageData =
 			apiBaseUrl: string;
 			data: RepositoryReviewHealthResponse;
 			form: RepositoryHealthFormValues;
+			state: "ready";
+	  };
+
+export type SetupStatusPageData =
+	| {
+			apiBaseUrl: string;
+			error: string;
+			state: "error";
+	  }
+	| {
+			apiBaseUrl: string;
+			data: SetupStatusResponse;
 			state: "ready";
 	  };
 
@@ -251,6 +278,53 @@ export async function loadRepositoryReviewHealthPageData(input: {
 			apiBaseUrl: input.apiBaseUrl,
 			error: `PullSense could not reach the API: ${message}.`,
 			form,
+			state: "error",
+		};
+	}
+}
+
+export async function loadSetupStatusPageData(input: {
+	apiBaseUrl: string;
+	fetchImplementation?: typeof fetch;
+}): Promise<SetupStatusPageData> {
+	const fetchImplementation = input.fetchImplementation ?? fetch;
+	const requestUrl = `${input.apiBaseUrl}/setup-status`;
+
+	try {
+		const response = await fetchImplementation(requestUrl, {
+			cache: "no-store",
+		});
+
+		if (!response.ok) {
+			return {
+				apiBaseUrl: input.apiBaseUrl,
+				error: `PullSense could not load setup status right now (HTTP ${response.status}).`,
+				state: "error",
+			};
+		}
+
+		const parsed = setupStatusResponseSchema.safeParse(await response.json());
+
+		if (!parsed.success) {
+			return {
+				apiBaseUrl: input.apiBaseUrl,
+				error: "PullSense received an unexpected setup status response.",
+				state: "error",
+			};
+		}
+
+		return {
+			apiBaseUrl: input.apiBaseUrl,
+			data: parsed.data,
+			state: "ready",
+		};
+	} catch (error) {
+		const message =
+			error instanceof Error ? error.message : "Unknown request failure";
+
+		return {
+			apiBaseUrl: input.apiBaseUrl,
+			error: `PullSense could not reach the API: ${message}.`,
 			state: "error",
 		};
 	}
