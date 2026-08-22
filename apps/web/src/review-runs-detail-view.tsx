@@ -2,7 +2,10 @@ import { APP_NAME, APP_PHASE } from "@ai-code-review/shared";
 import Link from "next/link";
 
 import type { ReviewRunsPageData } from "./review-runs";
-import { buildReviewRunsSearchPath } from "./review-runs";
+import {
+	buildRepositoryHealthPath,
+	buildReviewRunsSearchPath,
+} from "./review-runs";
 import styles from "./review-runs-dashboard.module.css";
 import { ReviewRunsReadyState } from "./review-runs-ready-state";
 
@@ -17,6 +20,10 @@ export function ReviewRunsDetailView(props: ReviewRunsDetailViewProps) {
 		pullNumber: props.pageData.form.pullNumber,
 		repository: props.pageData.form.repository,
 	});
+	const repositoryHealthHref = buildRepositoryHealthPath({
+		owner: props.pageData.form.owner,
+		repository: props.pageData.form.repository,
+	});
 
 	return (
 		<main className={styles.page}>
@@ -29,9 +36,17 @@ export function ReviewRunsDetailView(props: ReviewRunsDetailViewProps) {
 						<span className={styles.breadcrumbDivider}>/</span>
 						<span className={styles.breadcrumbCurrent}>PR detail</span>
 					</div>
-					<Link className={styles.secondaryButton} href={backHref}>
-						Back to command center
-					</Link>
+					<div className={styles.detailActions}>
+						<Link
+							className={styles.secondaryButton}
+							href={repositoryHealthHref}
+						>
+							Repository health
+						</Link>
+						<Link className={styles.secondaryButton} href={backHref}>
+							Back to command center
+						</Link>
+					</div>
 				</div>
 				<section className={styles.detailHero}>
 					<div className={styles.detailHeroContent}>

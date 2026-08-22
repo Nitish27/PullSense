@@ -1,7 +1,10 @@
 import Link from "next/link";
 
 import type { ReviewRunsResponse } from "./review-runs";
-import { buildReviewRunsDetailPath } from "./review-runs";
+import {
+	buildRepositoryHealthPath,
+	buildReviewRunsDetailPath,
+} from "./review-runs";
 import styles from "./review-runs-dashboard.module.css";
 import { ReviewRunsHistoryTable } from "./review-runs-history-table";
 import {
@@ -32,6 +35,10 @@ export function ReviewRunsReadyState(props: ReviewRunsReadyStateProps) {
 	const detailHref = buildReviewRunsDetailPath({
 		owner: props.data.owner,
 		pullNumber: props.data.pullNumber,
+		repository: props.data.repository,
+	});
+	const repositoryHealthHref = buildRepositoryHealthPath({
+		owner: props.data.owner,
 		repository: props.data.repository,
 	});
 
@@ -118,6 +125,12 @@ export function ReviewRunsReadyState(props: ReviewRunsReadyStateProps) {
 						<div className={styles.inlineActionRow}>
 							<Link className={styles.secondaryButton} href={detailHref}>
 								Open dedicated PR route
+							</Link>
+							<Link
+								className={styles.secondaryButton}
+								href={repositoryHealthHref}
+							>
+								Open repository health
 							</Link>
 						</div>
 					) : null}
